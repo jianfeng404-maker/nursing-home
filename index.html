@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Google AI Studio App</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div id="error-overlay" style="position:fixed; top:0; left:0; z-index: 999999; background: white; color: red; word-wrap: break-word; font-family: monospace;"></div>
+    <script>
+      window.addEventListener('error', function(e) {
+        document.getElementById('error-overlay').innerText += '\\n' + e.message + '\\n' + e.error?.stack;
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        document.getElementById('error-overlay').innerText += '\\nPromise:' + e.reason?.message + '\\n' + e.reason?.stack;
+      });
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
