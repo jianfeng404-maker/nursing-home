@@ -1,55 +1,81 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { Search, Plus, Edit2, Trash2, Home, Layers, Settings, ChevronRight, Activity, Zap, PlusCircle, X, CheckCircle2 } from "lucide-react";
+import { Search, Plus, Edit2, Trash2, Home, Layers, Settings, ChevronRight, Activity, Zap, PlusCircle, X, CheckCircle2, ChevronDown } from "lucide-react";
+import { useStore } from "../store";
 
 export function BedManage() {
+  const { 
+    buildings, floors, rooms, roomTypes, 
+    addBuilding, addFloor, addRoom, addRoomType,
+    removeRoom, removeRoomType
+  } = useStore();
+
   const [activeTab, setActiveTab] = useState('rooms');
   const [showSpaceModal, setShowSpaceModal] = useState(false);
   const [spaceType, setSpaceType] = useState('building'); // building, floor, room
   
   const [showTypeModal, setShowTypeModal] = useState(false);
+  
+  const [expandedBuildings, setExpandedBuildings] = useState<Record<string, boolean>>({'BLD-A': true});
+  const [selectedFloorId, setSelectedFloorId] = useState<string | null>('FL-A-1');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Define state for demonstrating UI updates
-  const [rooms, setRooms] = useState([
-    { id: 101, type: '双人间', size: '35㎡ 朝南', beds: 2, status: '启用中' },
-    { id: 102, type: '双人间', size: '35㎡ 朝南', beds: 2, status: '启用中' },
-    { id: 103, type: '单人间', size: '25㎡ 朝南', beds: 1, status: '启用中' },
-    { id: 105, type: '三人间', size: '35㎡ 朝南', beds: 3, status: '启用中' },
-  ]);
-
-  const [roomTypes, setRoomTypes] = useState([
-    { id: 'T1', name: '单人间 (VIP)', beds: 1, price: 6000, desc: '包含独立卫浴，朝南' },
-    { id: 'T2', name: '双人间 (标准)', beds: 2, price: 4500, desc: '含卫浴，南北通透' },
-    { id: 'T3', name: '三人间 (护理)', beds: 3, price: 3200, desc: '中心供氧，近护士站' },
-  ]);
+  const toggleBuilding = (id: string) => {
+    setExpandedBuildings(prev => ({ ...prev, [id]: !prev[id] }));
+  };
 
   const handleSaveSpace = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (spaceType === 'room') {
-      const formData = new FormData(e.currentTarget);
-      setRooms([...rooms, {
-        id: parseInt(formData.get('roomNo') as string) || 108,
-        type: (formData.get('roomType') as string)?.split(' ')[0] || '双人间',
-        size: '30㎡ 默认',
-        beds: 2,
-        status: '启用中'
-      }]);
+    const formData = new FormData(e.currentTarget);
+    
+    if (spaceType === 'building') {
+      addBuilding({
+        id: `BLD-${Date.now()}`,
+        name: formData.get('name') as string,
+        note: formData.get('note') as string,
+      });
+    } else if (spaceType === 'floor') {
+      addFloor({
+        id: `FL-${Date.now()}`,
+        buildingId: formData.get('building') as string,
+        name: formData.get('floorName') as string,
+        type: formData.get('floorType') as string,
+      });
+    } else if (spaceType === 'room') {
+      addRoom({
+        id: `RM-${Date.now()}`,
+        roomNo: formData.get('roomNo') as string,
+        buildingId: formData.get('building') as string,
+        floorId: formData.get('floor') as string,
+        roomTypeId: formData.get('roomType') as string,
+        status: '启用中',
+        specialFacilities: []
+      });
     }
+    
     setShowSpaceModal(false);
   };
 
   const handleSaveType = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    setRoomTypes([...roomTypes, {
+    addRoomType({
       id: `T${Date.now()}`,
       name: formData.get('name') as string,
       beds: parseInt(formData.get('beds') as string) || 2,
       price: parseInt(formData.get('price') as string) || 3000,
       desc: formData.get('desc') as string || '无特殊说明'
-    }]);
+    });
     setShowTypeModal(false);
   };
+
+  const filteredRooms = rooms.filter(r => 
+    (selectedFloorId ? r.floorId === selectedFloorId : true) &&
+    (searchQuery ? r.roomNo.includes(searchQuery) : true)
+  );
+
+  const selectedFloor = floors.find(f => f.id === selectedFloorId);
+  const selectedBuildingLabel = selectedFloor ? buildings.find(b => b.id === selectedFloor.buildingId)?.name : '';
 
   return (
     <div className="animate-in fade-in duration-500 pb-8">
@@ -87,43 +113,71 @@ export function BedManage() {
           </div>
           <div className="p-3 flex-1 overflow-y-auto">
             <div className="space-y-1">
-              <div className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-slate-100 cursor-pointer font-medium text-sm text-slate-800 group">
-                <ChevronRight className="w-4 h-4 transition-transform rotate-90" />
-                <Home className="w-4 h-4 text-indigo-500" />
-                <span className="flex-1">A栋 (主楼)</span>
-                <button onClick={(e) => { e.stopPropagation(); setSpaceType('floor'); setShowSpaceModal(true); }} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-emerald-600"><Plus className="w-3.5 h-3.5" /></button>
-              </div>
-              <div className="pl-6 space-y-1">
-                <div className="flex items-center justify-between px-2 py-1.5 rounded bg-emerald-50 text-emerald-700 font-medium text-sm cursor-pointer group">
-                  <span>一层 (重度护理区)</span>
-                  <button onClick={(e) => { e.stopPropagation(); setSpaceType('room'); setShowSpaceModal(true); }} className="opacity-0 group-hover:opacity-100 text-emerald-600 hover:text-emerald-800"><Plus className="w-3.5 h-3.5" /></button>
-                </div>
-                <div className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-slate-100 text-slate-600 font-medium text-sm cursor-pointer group">
-                  <span>二层 (中度护理区)</span>
-                  <button className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-emerald-600"><Plus className="w-3.5 h-3.5" /></button>
-                </div>
-                <div className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-slate-100 text-slate-600 font-medium text-sm cursor-pointer group">
-                  <span>三层 (自理长者区)</span>
-                  <button className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-emerald-600"><Plus className="w-3.5 h-3.5" /></button>
-                </div>
+              <div 
+                className={`flex items-center gap-2 px-2 py-1.5 rounded font-medium text-sm cursor-pointer ${selectedFloorId === null ? 'bg-emerald-50 text-emerald-700' : 'hover:bg-slate-100 text-slate-800'}`}
+                onClick={() => setSelectedFloorId(null)}
+              >
+                <Layers className="w-4 h-4 text-emerald-500" />
+                <span className="flex-1">全部房间</span>
               </div>
               
-              <div className="flex items-center gap-2 px-2 py-1.5 mt-2 rounded hover:bg-slate-100 cursor-pointer font-medium text-sm text-slate-800">
-                <ChevronRight className="w-4 h-4" />
-                <Home className="w-4 h-4 text-indigo-500" />
-                A栋附属楼
-              </div>
-              
-              <div className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-slate-100 cursor-pointer font-medium text-sm text-slate-800">
-                <ChevronRight className="w-4 h-4" />
-                <Home className="w-4 h-4 text-indigo-500" />
-                B栋 (VIP区)
-              </div>
-              <div className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-slate-100 cursor-pointer font-medium text-sm text-slate-800">
-                <ChevronRight className="w-4 h-4" />
-                <Home className="w-4 h-4 text-indigo-500" />
-                C栋 (医疗中心)
-              </div>
+              {buildings.map(building => (
+                <React.Fragment key={building.id}>
+                  <div 
+                    className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-slate-100 cursor-pointer font-medium text-sm text-slate-800 group"
+                    onClick={() => toggleBuilding(building.id)}
+                  >
+                    <ChevronRight className={`w-4 h-4 transition-transform ${expandedBuildings[building.id] ? 'rotate-90' : ''}`} />
+                    <Home className="w-4 h-4 text-indigo-500" />
+                    <span className="flex-1">{building.name}</span>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setSpaceType('floor'); setShowSpaceModal(true); }} 
+                      className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-emerald-600 p-1"
+                      title="新增楼层"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); if(confirm('确认删除?')) removeBuilding(building.id); }} 
+                      className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-600 p-1"
+                      title="删除楼栋"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  
+                  {expandedBuildings[building.id] && (
+                    <div className="pl-6 space-y-1">
+                      {floors.filter(f => f.buildingId === building.id).map(floor => (
+                        <div 
+                          key={floor.id}
+                          className={`flex items-center justify-between px-2 py-1.5 rounded font-medium text-sm cursor-pointer group ${selectedFloorId === floor.id ? 'bg-emerald-50 text-emerald-700' : 'hover:bg-slate-100 text-slate-600'}`}
+                          onClick={() => setSelectedFloorId(floor.id)}
+                        >
+                          <span className="flex-1">{floor.name} {floor.type ? `(${floor.type})` : ''}</span>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setSpaceType('room'); setShowSpaceModal(true); }} 
+                            className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-emerald-600 p-1"
+                            title="新增房间"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                           <button 
+                            onClick={(e) => { e.stopPropagation(); if(confirm('确认删除?')) removeFloor(floor.id); }} 
+                            className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-600 p-1"
+                            title="删除楼层"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                      {floors.filter(f => f.buildingId === building.id).length === 0 && (
+                        <div className="px-2 py-1 text-xs text-slate-400">暂无楼层</div>
+                      )}
+                    </div>
+                  )}
+                </React.Fragment>
+              ))}
             </div>
           </div>
         </Card>
@@ -146,14 +200,16 @@ export function BedManage() {
              <Card className="flex-1 border border-slate-200 shadow-sm">
                 <CardHeader className="border-b border-slate-100 bg-white pb-4 pt-4 px-6 flex flex-row items-center justify-between">
                   <div>
-                    <CardTitle className="text-base font-bold text-slate-800">一层 (重度护理区) 房间列表</CardTitle>
-                    <p className="text-xs text-slate-500 mt-1">当前区域共 12 个房间，24 张床位</p>
+                    <CardTitle className="text-base font-bold text-slate-800">{selectedBuildingLabel} {selectedFloor ? selectedFloor.name : '全部房间'} 列表</CardTitle>
+                    <p className="text-xs text-slate-500 mt-1">当前区域共 {filteredRooms.length} 个房间</p>
                   </div>
                   <div className="relative">
                     <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input 
                       type="text" 
                       placeholder="搜索房号..." 
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-9 pr-4 py-1.5 border border-slate-300 rounded-lg text-sm w-48 focus:outline-none focus:border-emerald-500"
                     />
                   </div>
@@ -172,33 +228,46 @@ export function BedManage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white">
-                      {rooms.map((room) => (
-                        <tr key={room.id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="px-6 py-4 font-bold text-slate-800">{room.id}室</td>
-                          <td className="px-6 py-4">
-                            <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs">
-                              {room.type}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-slate-500 font-medium">{room.size}</td>
-                          <td className="px-6 py-4 font-medium text-emerald-600 cursor-pointer hover:underline">
-                            {room.beds}张
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex gap-1.5">
-                              <span title="自带独卫" className="bg-blue-50 text-blue-600 p-1 rounded"><Activity className="w-3.5 h-3.5" /></span>
-                              <span title="中心供氧" className="bg-rose-50 text-rose-600 p-1 rounded"><Zap className="w-3.5 h-3.5" /></span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="text-emerald-600 bg-emerald-50 px-2 py-1 rounded text-xs font-medium">{room.status}</span>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <button className="text-indigo-600 hover:text-indigo-800 p-1 rounded hover:bg-indigo-50 transition-colors" title="编辑"><Edit2 className="w-4 h-4" /></button>
-                            <button onClick={() => setRooms(rooms.filter(r => r.id !== room.id))} className="text-rose-600 hover:text-rose-800 p-1 rounded hover:bg-rose-50 transition-colors ml-1" title="删除"><Trash2 className="w-4 h-4" /></button>
+                      {filteredRooms.map((room) => {
+                        const rType = roomTypes.find(t => t.id === room.roomTypeId);
+                        
+                        return (
+                          <tr key={room.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-6 py-4 font-bold text-slate-800">{room.roomNo}室</td>
+                            <td className="px-6 py-4">
+                              <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs">
+                                {rType?.name || '未知房型'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-slate-500 font-medium">默认面积</td>
+                            <td className="px-6 py-4 font-medium text-emerald-600 cursor-pointer hover:underline">
+                              {rType?.beds || 0}张
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex gap-1.5">
+                                {room.specialFacilities?.map((fac, idx) => (
+                                  <span key={idx} title={fac} className="bg-blue-50 text-blue-600 p-1 rounded text-xs px-2">{fac}</span>
+                                ))}
+                                {(!room.specialFacilities || room.specialFacilities.length === 0) && <span className="text-slate-400 text-xs">暂无</span>}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className="text-emerald-600 bg-emerald-50 px-2 py-1 rounded text-xs font-medium">{room.status}</span>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <button className="text-indigo-600 hover:text-indigo-800 p-1 rounded hover:bg-indigo-50 transition-colors" title="编辑"><Edit2 className="w-4 h-4" /></button>
+                              <button onClick={() => { if(confirm('确认删除?')) removeRoom(room.id); }} className="text-rose-600 hover:text-rose-800 p-1 rounded hover:bg-rose-50 transition-colors ml-1" title="删除"><Trash2 className="w-4 h-4" /></button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {filteredRooms.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
+                            暂无房间数据，请点击右上角新增房间
                           </td>
                         </tr>
-                      ))}
+                      )}
                     </tbody>
                   </table>
                 </CardContent>
@@ -224,7 +293,7 @@ export function BedManage() {
                          <div className="text-right flex items-center gap-3">
                            <div className="text-right"><div className="font-bold text-rose-600">¥ {type.price.toLocaleString()} / 月</div><div className="text-xs text-slate-400 mt-0.5">按床位收费</div></div>
                            <button className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-indigo-600"><Edit2 className="w-4 h-4" /></button>
-                           <button onClick={() => setRoomTypes(roomTypes.filter(t => t.id !== type.id))} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-600"><Trash2 className="w-4 h-4" /></button>
+                           <button onClick={() => { if(confirm('确认删除?')) removeRoomType(type.id); }} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-600"><Trash2 className="w-4 h-4" /></button>
                          </div>
                       </div>
                     ))}
@@ -268,8 +337,9 @@ export function BedManage() {
                     <div className="space-y-1.5">
                       <label className="text-sm font-medium text-slate-700">所属楼栋 *</label>
                       <select name="building" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 bg-white">
-                        <option>A栋 (主楼)</option>
-                        <option>B栋 (VIP区)</option>
+                        {buildings.map(b => (
+                          <option key={b.id} value={b.id}>{b.name}</option>
+                        ))}
                       </select>
                     </div>
                     <div className="space-y-1.5">
@@ -293,14 +363,18 @@ export function BedManage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <label className="text-sm font-medium text-slate-700">所属楼栋</label>
-                        <select className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 bg-white">
-                          <option>A栋 (主楼)</option>
+                        <select name="building" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 bg-white">
+                          {buildings.map(b => (
+                            <option key={b.id} value={b.id}>{b.name}</option>
+                          ))}
                         </select>
                       </div>
                       <div className="space-y-1.5">
                         <label className="text-sm font-medium text-slate-700">所属楼层</label>
-                        <select className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 bg-white">
-                          <option>一层 (重度护理区)</option>
+                        <select name="floor" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 bg-white">
+                          {floors.map(f => (
+                            <option key={f.id} value={f.id}>{f.name} ({buildings.find(b => b.id === f.buildingId)?.name})</option>
+                          ))}
                         </select>
                       </div>
                     </div>
@@ -312,7 +386,7 @@ export function BedManage() {
                       <div className="space-y-1.5">
                         <label className="text-sm font-medium text-slate-700">房型及收费标准 *</label>
                         <select name="roomType" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 bg-white">
-                          {roomTypes.map(rt => <option key={rt.id}>{rt.name} - {rt.price}元/月</option>)}
+                          {roomTypes.map(rt => <option key={rt.id} value={rt.id}>{rt.name} - {rt.price}元/月</option>)}
                         </select>
                       </div>
                     </div>

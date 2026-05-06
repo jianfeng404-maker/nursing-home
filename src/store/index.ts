@@ -59,6 +59,38 @@ interface Bed {
   elderId?: string;
 }
 
+export interface RoomType {
+  id: string;
+  name: string;
+  beds: number;
+  price: number;
+  desc: string;
+  allowPackage?: boolean;
+}
+
+export interface Building {
+  id: string;
+  name: string;
+  note?: string;
+}
+
+export interface Floor {
+  id: string;
+  name: string;
+  type: string;
+  buildingId: string;
+}
+
+export interface Room {
+  id: string;
+  roomNo: string;
+  roomTypeId: string;
+  floorId: string;
+  buildingId: string;
+  status: '启用中' | '停用中' | '维修中';
+  specialFacilities?: string[];
+}
+
 interface Alert {
   id: string;
   type: string;
@@ -131,6 +163,10 @@ interface StoreState {
   careLevels: CareLevel[];
   serviceItems: ServiceItem[];
   assessments: Assessment[];
+  buildings: Building[];
+  floors: Floor[];
+  rooms: Room[];
+  roomTypes: RoomType[];
   
   // Drawer Global State
   targetElderId: string | null;
@@ -169,6 +205,22 @@ interface StoreState {
 
   addAssessment: (assessment: Assessment) => void;
   updateAssessment: (id: string, updates: Partial<Assessment>) => void;
+
+  addBuilding: (building: Building) => void;
+  updateBuilding: (id: string, building: Partial<Building>) => void;
+  removeBuilding: (id: string) => void;
+  
+  addFloor: (floor: Floor) => void;
+  updateFloor: (id: string, floor: Partial<Floor>) => void;
+  removeFloor: (id: string) => void;
+
+  addRoom: (room: Room) => void;
+  updateRoom: (id: string, room: Partial<Room>) => void;
+  removeRoom: (id: string) => void;
+
+  addRoomType: (roomType: RoomType) => void;
+  updateRoomType: (id: string, roomType: Partial<RoomType>) => void;
+  removeRoomType: (id: string) => void;
 }
 
 // Initial mock data to bootstrap the state
@@ -447,6 +499,27 @@ export const useStore = create<StoreState>((set) => ({
   careLevels: initialCareLevels,
   serviceItems: initialServiceItems,
   assessments: initialAssessments,
+  buildings: [
+    { id: 'BLD-A', name: 'A栋 (主楼)' },
+    { id: 'BLD-B', name: 'B栋 (VIP区)' },
+    { id: 'BLD-C', name: 'C栋 (医疗中心)' }
+  ],
+  floors: [
+    { id: 'FL-A-1', name: '一层', type: '重度护理区', buildingId: 'BLD-A' },
+    { id: 'FL-A-2', name: '二层', type: '中度护理区', buildingId: 'BLD-A' },
+    { id: 'FL-A-3', name: '三层', type: '自理长者区', buildingId: 'BLD-A' }
+  ],
+  rooms: [
+    { id: 'RM-A-101', roomNo: '101', roomTypeId: 'T2', floorId: 'FL-A-1', buildingId: 'BLD-A', status: '启用中', specialFacilities: ['自带独卫', '防滑地板'] },
+    { id: 'RM-A-102', roomNo: '102', roomTypeId: 'T2', floorId: 'FL-A-1', buildingId: 'BLD-A', status: '启用中', specialFacilities: [] },
+    { id: 'RM-A-103', roomNo: '103', roomTypeId: 'T1', floorId: 'FL-A-1', buildingId: 'BLD-A', status: '启用中', specialFacilities: ['中心供氧'] },
+    { id: 'RM-A-105', roomNo: '105', roomTypeId: 'T3', floorId: 'FL-A-1', buildingId: 'BLD-A', status: '停用中', specialFacilities: [] },
+  ],
+  roomTypes: [
+    { id: 'T1', name: '单人间 (VIP)', beds: 1, price: 6000, desc: '包含独立卫浴，朝南' },
+    { id: 'T2', name: '双人间 (标准)', beds: 2, price: 4500, desc: '含卫浴，南北通透' },
+    { id: 'T3', name: '三人间 (护理)', beds: 3, price: 3200, desc: '中心供氧，近护士站' },
+  ],
   
   targetElderId: null,
   targetAction: null,
@@ -538,4 +611,20 @@ export const useStore = create<StoreState>((set) => ({
   updateAssessment: (id, updates) => set((state) => ({
     assessments: state.assessments.map(a => a.id === id ? { ...a, ...updates } : a)
   })),
+
+  addBuilding: (building) => set((state) => ({ buildings: [...state.buildings, building] })),
+  updateBuilding: (id, updated) => set((state) => ({ buildings: state.buildings.map(b => b.id === id ? { ...b, ...updated } : b) })),
+  removeBuilding: (id) => set((state) => ({ buildings: state.buildings.filter(b => b.id !== id) })),
+
+  addFloor: (floor) => set((state) => ({ floors: [...state.floors, floor] })),
+  updateFloor: (id, updated) => set((state) => ({ floors: state.floors.map(f => f.id === id ? { ...f, ...updated } : f) })),
+  removeFloor: (id) => set((state) => ({ floors: state.floors.filter(f => f.id !== id) })),
+
+  addRoom: (room) => set((state) => ({ rooms: [...state.rooms, room] })),
+  updateRoom: (id, updated) => set((state) => ({ rooms: state.rooms.map(r => r.id === id ? { ...r, ...updated } : r) })),
+  removeRoom: (id) => set((state) => ({ rooms: state.rooms.filter(r => r.id !== id) })),
+
+  addRoomType: (rt) => set((state) => ({ roomTypes: [...state.roomTypes, rt] })),
+  updateRoomType: (id, updated) => set((state) => ({ roomTypes: state.roomTypes.map(t => t.id === id ? { ...t, ...updated } : t) })),
+  removeRoomType: (id) => set((state) => ({ roomTypes: state.roomTypes.filter(t => t.id !== id) })),
 }));
