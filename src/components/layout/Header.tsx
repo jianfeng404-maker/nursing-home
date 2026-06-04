@@ -25,7 +25,7 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
         >
           <Menu className="w-5 h-5" />
         </button>
-        <div className="text-xl font-bold bg-gradient-to-r from-blue-700 to-indigo-700 bg-clip-text text-transparent hidden sm:block w-48 lg:hidden">
+        <div className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent hidden sm:block w-48 lg:hidden">
           智能颐养平台
         </div>
         <div className="relative w-full max-w-md hidden md:block lg:ml-2">
@@ -33,7 +33,7 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
           <input 
             type="text" 
             placeholder="全局搜索 (长者 / 员工 / 物资 / 订单号)..." 
-            className="pl-9 pr-4 py-2 w-full bg-slate-50 border border-slate-200 rounded-full text-sm focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all shadow-sm"
+            className="pl-9 pr-4 py-2 w-full bg-slate-50 border border-slate-200 rounded-full text-sm focus:outline-none focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all shadow-sm"
           />
         </div>
       </div>
@@ -75,7 +75,7 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
               <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                 <span className="font-bold text-slate-800">消息通知</span>
                 <button 
-                  className="text-xs text-blue-600 hover:underline"
+                  className="text-xs text-emerald-600 hover:underline"
                   onClick={() => toast.success('已全部标记为已读')}
                 >
                   全部标记为已读
@@ -84,7 +84,7 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
               <div className="max-h-80 overflow-y-auto">
                 {notifications.map(note => (
                   <div key={note.id} className="px-4 py-3 border-b border-slate-50 hover:bg-slate-50 cursor-pointer transition-colors flex gap-3">
-                    <div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${note.type === 'urgent' ? 'bg-rose-500 shadow-sm shadow-rose-200' : note.type === 'warning' ? 'bg-amber-500' : 'bg-blue-500'}`} />
+                    <div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${note.type === 'urgent' ? 'bg-rose-500 shadow-sm shadow-rose-200' : note.type === 'warning' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
                     <div className="flex-1">
                       <p className="text-sm font-medium text-slate-800">{note.title}</p>
                       <p className="text-xs text-slate-500 mt-1 line-clamp-2">{note.desc}</p>
@@ -94,7 +94,7 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
                 ))}
               </div>
               <div className="px-4 py-2 text-center border-t border-slate-100 bg-slate-50">
-                <button className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline transition-colors">查看全部系统通知</button>
+                <button className="text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline transition-colors">查看全部系统通知</button>
               </div>
             </div>
           )}
@@ -112,7 +112,7 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
               setShowNotifications(false);
             }}
           >
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-700 rounded-full flex items-center justify-center font-bold shadow-sm border border-blue-200 shrink-0">
+            <div className="w-8 h-8 bg-gradient-to-br from-indigo-100 to-slate-100 text-indigo-700 rounded-full flex items-center justify-center font-bold shadow-sm border border-indigo-200 shrink-0">
               管
             </div>
             <div className="text-left hidden md:block">
@@ -128,13 +128,13 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
                 <p className="text-xs text-slate-500 truncate">admin@smart-care.com</p>
               </div>
               <div className="py-1">
-                <button className="w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-blue-600 flex items-center gap-2 transition-colors">
+                <button className="w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-emerald-600 flex items-center gap-2 transition-colors">
                   <User className="w-4 h-4" /> 个人资料
                 </button>
-                <button className="w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-blue-600 flex items-center gap-2 transition-colors">
+                <button className="w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-emerald-600 flex items-center gap-2 transition-colors">
                   <Settings className="w-4 h-4" /> 账号设置
                 </button>
-                <button className="w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-blue-600 flex items-center gap-2 transition-colors">
+                <button className="w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-emerald-600 flex items-center gap-2 transition-colors">
                   <Info className="w-4 h-4" /> 关于系统
                 </button>
               </div>

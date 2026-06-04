@@ -186,8 +186,8 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
         isOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"
       )}>
         <div className="h-16 lg:h-20 flex items-center justify-between px-6 border-b border-slate-100 shrink-0">
-          <h1 className="text-xl font-bold bg-gradient-to-r from-blue-700 to-indigo-700 bg-clip-text text-transparent flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-[10px] shadow-sm">
+          <h1 className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-2">
+            <div className="w-6 h-6 rounded bg-gradient-to-br from-emerald-500 to-teal-500 text-white flex items-center justify-center font-bold text-[10px] shadow-sm">
               S
             </div>
             智能颐养
@@ -211,15 +211,15 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
                   onClick={() => toggleGroup(group.title)}
                   className={cn(
                     "w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg transition-colors group",
-                    hasActiveItem && !isExpanded ? "text-blue-700 bg-blue-50/50" : "text-slate-700 hover:bg-slate-50"
+                    hasActiveItem && !isExpanded ? "text-emerald-700 bg-emerald-50/50" : "text-slate-700 hover:bg-slate-50"
                   )}
                 >
                   <div className="flex items-center gap-3">
                     <group.icon className={cn(
                       "h-4 w-4", 
-                      hasActiveItem ? "text-blue-600" : "text-slate-400 group-hover:text-slate-600"
+                      hasActiveItem ? "text-emerald-600" : "text-slate-400 group-hover:text-slate-600"
                     )} />
-                    <span className={cn("font-medium", hasActiveItem && "text-blue-700")}>{group.title}</span>
+                    <span className={cn("font-medium", hasActiveItem && "text-emerald-700")}>{group.title}</span>
                   </div>
                   {isExpanded ? (
                     <ChevronDown className="h-4 w-4 text-slate-400" />
@@ -240,7 +240,7 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
                         className={cn(
                           "w-full flex items-center px-3 py-2 text-xs rounded-lg transition-colors",
                           activeTab === item.id 
-                            ? "bg-blue-50 text-blue-700 font-semibold shadow-sm shadow-blue-100" 
+                            ? "bg-emerald-50 text-emerald-700 font-semibold shadow-sm shadow-emerald-100" 
                             : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                         )}
                       >
@@ -256,7 +256,7 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
 
         <div className="p-4 border-t border-slate-100 shrink-0 bg-slate-50/50">
           <div className="flex items-center gap-3 bg-white p-2 border border-slate-200 rounded-lg shadow-sm">
-            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-blue-700 border border-blue-200 font-bold text-xs shrink-0">
+            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-100 to-slate-100 text-indigo-700 border border-indigo-200 flex items-center justify-center font-bold text-xs shrink-0">
               Admin
             </div>
             <div className="text-left overflow-hidden">

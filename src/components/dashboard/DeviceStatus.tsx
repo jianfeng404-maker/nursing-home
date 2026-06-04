@@ -47,13 +47,13 @@ export function DeviceStatus() {
                   <div className="h-1.5 flex-1 bg-slate-100 rounded-full overflow-hidden">
                     <div 
                       className={`h-full rounded-full transition-all duration-500 ${
-                        isFull ? 'bg-emerald-500' : ratio > 0.8 ? 'bg-blue-500' : 'bg-amber-500'
+                        isFull ? 'bg-emerald-500' : ratio > 0.8 ? 'bg-indigo-500' : 'bg-amber-500'
                       }`}
                       style={{ width: `${ratio * 100}%` }}
                     />
                   </div>
                   <span className={`text-[10px] font-bold w-10 text-right ${
-                    isFull ? 'text-emerald-600' : ratio > 0.8 ? 'text-blue-600' : 'text-amber-600'
+                    isFull ? 'text-emerald-600' : ratio > 0.8 ? 'text-indigo-600' : 'text-amber-600'
                   }`}>
                     {Math.round(ratio * 100)}%
                   </span>

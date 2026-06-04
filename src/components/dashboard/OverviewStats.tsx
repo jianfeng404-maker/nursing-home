@@ -26,7 +26,7 @@ export function OverviewStats({ setActiveTab }: OverviewStatsProps) {
   const stats = [
     { targetId: "elder_info", label: "在院长者", value: occupiedBeds.toString(), trend: `入住率 ${occupancyRate}%`, icon: Users, color: "text-slate-700", bg: "bg-slate-100", highlight: "bg-slate-50 border-slate-200" },
     { targetId: "bed_board", label: "空闲床位", value: freeBeds.toString(), trend: "昨日减少 2", icon: Bed, color: "text-emerald-700", bg: "bg-emerald-100", highlight: "bg-emerald-50 border-emerald-100" },
-    { targetId: "care_tasks", label: "今日护理巡床", value: totalTasks.toString(), trend: `已完成 ${taskCompletionRate}%`, isUp: true, icon: ActivitySquare, color: "text-blue-700", bg: "bg-blue-100", highlight: "bg-blue-50 border-blue-100" },
+    { targetId: "care_tasks", label: "今日护理巡床", value: totalTasks.toString(), trend: `已完成 ${taskCompletionRate}%`, isUp: true, icon: ActivitySquare, color: "text-indigo-700", bg: "bg-indigo-100", highlight: "bg-indigo-50 border-indigo-100" },
     { targetId: "safety", label: "待处理告警", value: pendingAlertsCount.toString(), trend: `含 ${criticalAlertsCount} 起危机`, icon: AlertTriangle, color: "text-rose-700", bg: "bg-rose-100", highlight: "bg-rose-50 border-rose-200 shadow-rose-100" },
   ];
 
