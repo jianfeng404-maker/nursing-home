@@ -358,7 +358,7 @@ export function StaffStruct() {
                               reader.readAsDataURL(file);
                             }
                           }} />
-                          <img id="edit-staff-avatar-preview" src={editingStaff?.avatar || ""} className={`w-full h-full object-cover ${!editingStaff?.avatar ? 'hidden' : ''}`} />
+                          <img id="edit-staff-avatar-preview" src={editingStaff?.avatar || undefined} className={`w-full h-full object-cover ${!editingStaff?.avatar ? 'hidden' : ''}`} />
                           <div id="edit-staff-avatar-placeholder" className={`text-slate-400 font-bold ${editingStaff?.avatar ? 'hidden' : ''}`}>
                              {editingStaff?.name?.[0] || <UserCircle className="w-5 h-5"/>}
                           </div>

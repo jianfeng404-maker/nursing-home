@@ -132,6 +132,7 @@ export function NurseStation({ setActiveTab }: { setActiveTab?: (tab: string) =>
     id: t.id,
     time: t.time,
     task: t.name,
+    type: t.type,
     elderRaw: t.elder,
     bed: t.elder.includes('(') ? t.elder.split('(')[1].replace(')', '') : 'N/A',
     elder: t.elder.split(' ')[0],
@@ -243,7 +244,13 @@ export function NurseStation({ setActiveTab }: { setActiveTab?: (tab: string) =>
                     <div className={`text-xs font-bold ${task.status === 'completed' ? 'text-slate-400' : 'text-blue-500'}`}>{task.time.split(':')[1]}</div>
                   </div>
                   <div className="flex-1 min-w-0 flex flex-col justify-center">
-                    <div className={`font-bold text-sm truncate ${task.status === 'completed' ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                    <div className={`font-bold text-sm truncate flex items-center gap-1.5 ${task.status === 'completed' ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                      {task.type === 'medical' && (
+                        <span className="text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded border border-red-100 no-underline leading-none">医嘱</span>
+                      )}
+                      {task.type === 'temporary' && (
+                        <span className="text-[10px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-100 no-underline leading-none">临时</span>
+                      )}
                       {task.task}
                     </div>
                     <div className="text-[11px] text-slate-400 flex items-center gap-2 mt-1 truncate">

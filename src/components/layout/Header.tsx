@@ -3,12 +3,22 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { FamilyAppPreview } from "../FamilyAppPreview";
 import { CareworkerAppPreview } from "../CareworkerAppPreview";
+import { useFirebase } from "../../hooks/useFirebase";
+import { useStore } from "../../store";
 
 export function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showFamilyApp, setShowFamilyApp] = useState(false);
   const [showCareworkerApp, setShowCareworkerApp] = useState(false);
+
+  const displayName = '系统管理员';
+  const roleName = 'Super Admin';
+  const initial = '管';
+
+  const handleLogout = async () => {
+    toast.info('试用模式下无法退出该测试账户');
+  };
 
   const notifications = [
     { id: 1, title: '床位告警', desc: 'A区102床呼叫未响应超时', time: '10分钟前', type: 'urgent' },
@@ -113,18 +123,18 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
             }}
           >
             <div className="w-8 h-8 bg-gradient-to-br from-indigo-100 to-slate-100 text-indigo-700 rounded-full flex items-center justify-center font-bold shadow-sm border border-indigo-200 shrink-0">
-              管
+              {initial}
             </div>
             <div className="text-left hidden md:block">
-              <p className="text-sm font-bold text-slate-700 leading-tight">系统管理员</p>
-              <p className="text-[10px] text-slate-500">Super Admin</p>
+              <p className="text-sm font-bold text-slate-700 leading-tight">{displayName}</p>
+              <p className="text-[10px] text-slate-500">{roleName}</p>
             </div>
           </button>
 
           {showProfile && (
             <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 origin-top-right z-50">
               <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50">
-                <p className="text-sm font-bold text-slate-800">admin</p>
+                <p className="text-sm font-bold text-slate-800">{displayName}</p>
                 <p className="text-xs text-slate-500 truncate">admin@smart-care.com</p>
               </div>
               <div className="py-1">
@@ -141,7 +151,7 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
               <div className="border-t border-slate-100 py-1 bg-slate-50/50">
                 <button 
                   className="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors"
-                  onClick={() => toast.info('已安全退出登录')}
+                  onClick={handleLogout}
                 >
                   <LogOut className="w-4 h-4" /> 退出登录
                 </button>

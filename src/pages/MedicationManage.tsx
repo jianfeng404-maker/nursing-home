@@ -12,6 +12,10 @@ export function MedicationManage() {
   const [selectedTask, setSelectedTask] = useState<any>(null);
   
   const [showNewOrderModal, setShowNewOrderModal] = useState(false);
+  const [newOrderElder, setNewOrderElder] = useState('张明宇 (A栋-101床)');
+  const [newOrderMedications, setNewOrderMedications] = useState([{ name: '', frequency: '', dose: '' }]);
+  const [newOrderTimes, setNewOrderTimes] = useState<string[]>(['12:00']);
+  const [newOrderRequirements, setNewOrderRequirements] = useState('');
 
   // Connect to global store tasks
   const globalTasks = useStore(state => state.tasks);
@@ -40,8 +44,8 @@ export function MedicationManage() {
         bed,
         time: t.time,
         timePeriod,
-        medications: [t.name.replace('辅助服药: ', '').replace('辅助服药 (降压药)', '降压药')], // rough parse for mock
-        requirements: "遵医嘱定时服用",
+        medications: t.medications && t.medications.length > 0 ? t.medications : [t.name.replace('辅助服药: ', '').replace('辅助服药 (降压药)', '降压药')], // rough parse for mock or fallback
+        requirements: t.requirements || "遵医嘱定时服用",
         status: t.status === 'completed' ? 'executed' : 'pending',
         executor: t.staff,
         executeTime: t.status === 'completed' ? t.time : undefined
@@ -441,10 +445,14 @@ export function MedicationManage() {
               <div className="grid grid-cols-2 gap-4">
                  <div className="space-y-1.5">
                     <label className="text-sm font-medium text-slate-700">选择长者 <span className="text-red-500">*</span></label>
-                    <select className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-500 bg-white">
+                    <select 
+                      value={newOrderElder}
+                      onChange={(e) => setNewOrderElder(e.target.value)}
+                      className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-500 bg-white"
+                    >
                       <option value="">--搜索或选择长者--</option>
-                      <option value="1">张明宇 (A-101)</option>
-                      <option value="2">李建国 (B-205)</option>
+                      <option value="张明宇 (A栋-101床)">张明宇 (A-101)</option>
+                      <option value="李建国 (B栋-205床)">李建国 (B-205)</option>
                     </select>
                  </div>
                  <div className="space-y-1.5">
@@ -456,25 +464,62 @@ export function MedicationManage() {
               <div className="space-y-3">
                  <div className="flex items-center justify-between">
                    <label className="text-sm font-medium text-slate-700">添加药品清单 <span className="text-red-500">*</span></label>
-                   <button className="text-blue-600 text-sm font-medium hover:text-blue-800 flex items-center gap-1">
+                   <button 
+                     onClick={() => setNewOrderMedications([...newOrderMedications, { name: '', frequency: '', dose: '' }])}
+                     className="text-blue-600 text-sm font-medium hover:text-blue-800 flex items-center gap-1"
+                   >
                      <Plus className="w-4 h-4" /> 增加药品
                    </button>
                  </div>
                  <div className="border border-slate-200 rounded-lg p-3 bg-slate-50 space-y-3">
-                    <div className="grid grid-cols-12 gap-2 items-center">
-                       <div className="col-span-5">
-                          <input type="text" className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500" placeholder="药品名称/规格" />
-                       </div>
-                       <div className="col-span-3">
-                          <input type="text" className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500" placeholder="频次 (如每日一次)" />
-                       </div>
-                       <div className="col-span-3">
-                          <input type="text" className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500" placeholder="剂量 (如1片)" />
-                       </div>
-                       <div className="col-span-1 text-center">
-                          <button className="text-red-500 hover:text-red-700 p-1"><X className="w-4 h-4 mx-auto" /></button>
-                       </div>
-                    </div>
+                    {newOrderMedications.map((med, index) => (
+                      <div key={index} className="grid grid-cols-12 gap-2 items-center">
+                         <div className="col-span-5">
+                            <input 
+                              type="text" 
+                              value={med.name}
+                              onChange={(e) => {
+                                const nw = [...newOrderMedications];
+                                nw[index].name = e.target.value;
+                                setNewOrderMedications(nw);
+                              }}
+                              className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500" placeholder="药品名称/规格" 
+                            />
+                         </div>
+                         <div className="col-span-3">
+                            <input 
+                              type="text" 
+                              value={med.frequency}
+                              onChange={(e) => {
+                                const nw = [...newOrderMedications];
+                                nw[index].frequency = e.target.value;
+                                setNewOrderMedications(nw);
+                              }}
+                              className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500" placeholder="频次 (如每日一次)" 
+                            />
+                         </div>
+                         <div className="col-span-3">
+                            <input 
+                              type="text" 
+                              value={med.dose}
+                              onChange={(e) => {
+                                const nw = [...newOrderMedications];
+                                nw[index].dose = e.target.value;
+                                setNewOrderMedications(nw);
+                              }}
+                              className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500" placeholder="剂量 (如1片)" 
+                            />
+                         </div>
+                         <div className="col-span-1 text-center">
+                            <button 
+                              onClick={() => setNewOrderMedications(newOrderMedications.filter((_, i) => i !== index))}
+                              className="text-red-500 hover:text-red-700 p-1"
+                            >
+                              <X className="w-4 h-4 mx-auto" />
+                            </button>
+                         </div>
+                      </div>
+                    ))}
                  </div>
               </div>
 
@@ -482,23 +527,31 @@ export function MedicationManage() {
                  <div className="space-y-1.5">
                     <label className="text-sm font-medium text-slate-700">分派执行时间点 <span className="text-red-500">*</span></label>
                     <div className="flex flex-wrap gap-2 pt-1">
-                       <label className="flex items-center gap-1.5 text-sm border border-slate-200 px-3 py-1.5 rounded bg-slate-50 hover:bg-slate-100 cursor-pointer">
-                          <input type="checkbox" className="rounded text-blue-600" /> 早晨(08:00)
-                       </label>
-                       <label className="flex items-center gap-1.5 text-sm border border-slate-200 px-3 py-1.5 rounded bg-slate-50 hover:bg-slate-100 cursor-pointer">
-                          <input type="checkbox" className="rounded text-blue-600" /> 中午(12:00)
-                       </label>
-                       <label className="flex items-center gap-1.5 text-sm border border-slate-200 px-3 py-1.5 rounded bg-slate-50 hover:bg-slate-100 cursor-pointer">
-                          <input type="checkbox" className="rounded text-blue-600" /> 晚上(18:00)
-                       </label>
-                       <label className="flex items-center gap-1.5 text-sm border border-slate-200 px-3 py-1.5 rounded bg-slate-50 hover:bg-slate-100 cursor-pointer">
-                          <input type="checkbox" className="rounded text-blue-600" /> 睡前(21:00)
-                       </label>
+                       {['08:00', '12:00', '18:00', '21:00'].map(t => (
+                         <label key={t} className="flex items-center gap-1.5 text-sm border border-slate-200 px-3 py-1.5 rounded bg-slate-50 hover:bg-slate-100 cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              checked={newOrderTimes.includes(t)}
+                              onChange={(e) => {
+                                if (e.target.checked) setNewOrderTimes([...newOrderTimes, t]);
+                                else setNewOrderTimes(newOrderTimes.filter(time => time !== t));
+                              }}
+                              className="rounded text-blue-600" 
+                            /> 
+                            {t === '08:00' ? '早晨' : t === '12:00' ? '中午' : t === '18:00' ? '晚上' : '睡前'}({t})
+                         </label>
+                       ))}
                     </div>
                  </div>
                  <div className="space-y-1.5">
                     <label className="text-sm font-medium text-slate-700">特殊的服药要求及禁忌</label>
-                    <input type="text" className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-500 placeholder-slate-400" placeholder="例如：必须饭后服用、不可嚼碎" />
+                    <input 
+                      type="text" 
+                      value={newOrderRequirements}
+                      onChange={(e) => setNewOrderRequirements(e.target.value)}
+                      className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-500 placeholder-slate-400" 
+                      placeholder="例如：必须饭后服用、不可嚼碎" 
+                    />
                  </div>
               </div>
 
@@ -526,23 +579,39 @@ export function MedicationManage() {
             </div>
             
             <div className="p-5 border-t border-slate-100 bg-slate-50 rounded-b-xl flex justify-end gap-3 sticky bottom-0 z-10">
-              <button onClick={() => setShowNewOrderModal(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200 bg-white border border-slate-300 rounded-lg transition-colors">
+              <button 
+                onClick={() => {
+                  setShowNewOrderModal(false);
+                  setNewOrderMedications([{ name: '', frequency: '', dose: '' }]);
+                  setNewOrderTimes(['12:00']);
+                  setNewOrderRequirements('');
+                }} 
+                className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200 bg-white border border-slate-300 rounded-lg transition-colors"
+              >
                 取消
               </button>
               <button 
+                disabled={!newOrderElder || newOrderMedications.length === 0 || !newOrderMedications[0].name || newOrderTimes.length === 0}
                 onClick={() => {
-                  addTask({
-                    id: `MED-${Date.now()}`,
-                    name: "辅助服药: 新增医嘱药品",
-                    elder: "张明宇 (A栋-101床)", // Mocked adding for 张明宇
-                    time: "12:00",
-                    staff: "待指派",
-                    status: "pending",
-                    type: "medical"
+                  newOrderTimes.forEach(time => {
+                    addTask({
+                      id: `MED-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                      name: `辅助服药: 排程生成`,
+                      elder: newOrderElder,
+                      time: time,
+                      staff: "待指派",
+                      status: "pending",
+                      type: "medical",
+                      medications: newOrderMedications.filter(m => m.name).map(m => `${m.name} ${m.dose}`),
+                      requirements: newOrderRequirements || "遵医嘱定时服用"
+                    });
                   });
                   setShowNewOrderModal(false);
+                  setNewOrderMedications([{ name: '', frequency: '', dose: '' }]);
+                  setNewOrderTimes(['12:00']);
+                  setNewOrderRequirements('');
                 }}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
               >
                 保存医嘱并生成任务
               </button>

@@ -7,13 +7,17 @@
   </head>
   <body>
     <div id="root"></div>
-    <div id="error-overlay" style="position:fixed; top:0; left:0; z-index: 999999; background: white; color: red; word-wrap: break-word; font-family: monospace;"></div>
+    <div id="error-overlay" style="position:fixed; top:0; left:0; z-index: 999999; background: transparent; pointer-events: none; color: red; word-wrap: break-word; font-family: monospace;"></div>
     <script>
       window.addEventListener('error', function(e) {
-        document.getElementById('error-overlay').innerText += '\\n' + e.message + '\\n' + e.error?.stack;
+        if (e.message && e.message.includes('WebSocket')) return;
+        var el = document.getElementById('error-overlay');
+        if (el) el.innerText += '\\n' + e.message + '\\n' + (e.error ? e.error.stack : '');
       });
       window.addEventListener('unhandledrejection', function(e) {
-        document.getElementById('error-overlay').innerText += '\\nPromise:' + e.reason?.message + '\\n' + e.reason?.stack;
+        if (e.reason && e.reason.message && e.reason.message.includes('WebSocket')) return;
+        var el = document.getElementById('error-overlay');
+        if (el) el.innerText += '\\nPromise:' + (e.reason ? e.reason.message : '') + '\\n' + (e.reason ? e.reason.stack : '');
       });
     </script>
     <script type="module" src="/src/main.tsx"></script>

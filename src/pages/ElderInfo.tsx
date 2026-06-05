@@ -170,7 +170,7 @@ export function ElderInfo({ setActiveTab, setTargetElderId, targetElderId, targe
                                   reader.readAsDataURL(file);
                                 }
                               }} />
-                              <img id="edit-avatar-preview" src={selectedElder.avatar || ""} className={`w-full h-full object-cover ${!selectedElder.avatar ? 'hidden' : ''}`} />
+                              <img id="edit-avatar-preview" src={selectedElder.avatar || undefined} className={`w-full h-full object-cover ${!selectedElder.avatar ? 'hidden' : ''}`} />
                               <div id="edit-avatar-placeholder" className={`text-slate-400 font-bold ${selectedElder.avatar ? 'hidden' : ''}`}>
                                  {selectedElder.name?.[0] || '长'}
                               </div>

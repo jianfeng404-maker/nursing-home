@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { Calendar as CalendarIcon, CheckSquare, Clock, Filter, Plus, Search, User, X, ClipboardType, ArrowRightLeft, Smartphone, RefreshCw, ConciergeBell } from "lucide-react";
+import { Calendar as CalendarIcon, CheckSquare, Clock, Filter, Plus, Search, User, X, ClipboardType, ArrowRightLeft, Smartphone, RefreshCw, ConciergeBell, Info } from "lucide-react";
 
 export function CareTasks() {
   const [activeDate, setActiveDate] = useState('today');
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
+  const [newTask, setNewTask] = useState({ name: '', elder: '无需关联', time: '12:00', assignTo: 'pool' });
 
   // Grouped tasks by station/person to show dispatch logic clearly
-  const [dispatchGroups] = useState([
+  const [dispatchGroups, setDispatchGroups] = useState([
     {
       station: "A栋-全自理区护理组",
       staff: "张阿姨 (早班)",
@@ -41,10 +42,13 @@ export function CareTasks() {
     }
   ]);
 
-  const [unassignedTasks] = useState([
+  const [unassignedTasks, setUnassignedTasks] = useState([
     { id: "T-901", elder: "孙奶奶 (C-302)", time: "随时", type: "临时", name: "家属送来水果，需协助清洗切块" },
     { id: "T-902", elder: "吴大爷 (A-102)", time: "16:00", type: "生活", name: "要求更换较厚的被被子" }
   ]);
+
+  const [taskToAssign, setTaskToAssign] = useState<any>(null);
+  const [assignTarget, setAssignTarget] = useState<string>('');
 
   return (
     <div className="animate-in fade-in duration-500 pb-8 h-full flex flex-col">
@@ -108,10 +112,13 @@ export function CareTasks() {
          {/* 左侧：未派发/临时呼叫池 */}
          <div className="w-80 flex flex-col bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden shrink-0">
             <div className="p-4 bg-white border-b border-slate-200 flex items-center justify-between shrink-0">
-               <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                 <ConciergeBell className="w-5 h-5 text-amber-500" />
-                 待分派与临时需求池
-               </h3>
+               <div className="flex flex-col gap-0.5">
+                 <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                   <ConciergeBell className="w-5 h-5 text-amber-500" />
+                   待分派与临时需求池
+                 </h3>
+                 <p className="text-[11px] text-slate-500 flex items-center gap-1"><Info className="w-3 h-3"/> 来源: 家属端 / IoT告警 / 手动创建</p>
+               </div>
                <span className="w-6 h-6 rounded bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs">{unassignedTasks.length}</span>
             </div>
             <div className="p-4 overflow-y-auto space-y-3 custom-scrollbar flex-1">
@@ -125,8 +132,8 @@ export function CareTasks() {
                      <p className="text-xs text-slate-500 flex items-center gap-1.5 mb-3 bg-slate-50 p-1.5 rounded">
                         <User className="w-3 h-3 text-slate-400" /> {task.elder}
                      </p>
-                     <button className="w-full py-1.5 bg-indigo-50 text-indigo-600 text-xs font-bold rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors">
-                        拖拽或点击指派
+                     <button onClick={() => setTaskToAssign(task)} className="w-full py-1.5 bg-indigo-50 text-indigo-600 text-xs font-bold rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors">
+                        点击指派
                      </button>
                   </div>
                ))}
@@ -205,36 +212,36 @@ export function CareTasks() {
              <div className="p-6 space-y-5">
                 <div className="space-y-1.5">
                   <label className="text-sm font-bold text-slate-700">任务内容 *</label>
-                  <input type="text" className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-colors" placeholder="如：送餐到房间、协助换洗衣物" />
+                  <input type="text" value={newTask.name} onChange={e => setNewTask({...newTask, name: e.target.value})} className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-colors" placeholder="如：送餐到房间、协助换洗衣物" />
                 </div>
                 
                 <div className="space-y-1.5">
                   <label className="text-sm font-bold text-slate-700">关联长者 / 地点</label>
-                  <select className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-colors">
-                     <option>无需关联特定长者 (公共区域任务)</option>
-                     <option>张明宇 (A栋-101)</option>
-                     <option>李秀红 (A栋-105)</option>
+                  <select value={newTask.elder} onChange={e => setNewTask({...newTask, elder: e.target.value})} className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-colors">
+                     <option value="无需关联特定长者 (公共区域任务)">无需关联特定长者 (公共区域任务)</option>
+                     <option value="张明宇 (A栋-101)">张明宇 (A栋-101)</option>
+                     <option value="李秀红 (A栋-105)">李秀红 (A栋-105)</option>
                   </select>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                    <div className="space-y-1.5">
                      <label className="text-sm font-bold text-slate-700">要求执行日期 *</label>
-                     <input type="date" className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-colors" />
+                     <input type="date" value={newTask.date} onChange={e => setNewTask({...newTask, date: e.target.value})} className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-colors" />
                    </div>
                    <div className="space-y-1.5">
                      <label className="text-sm font-bold text-slate-700">时间节点 *</label>
-                     <input type="time" className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-colors" />
+                     <input type="time" value={newTask.time} onChange={e => setNewTask({...newTask, time: e.target.value})} className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-colors" />
                    </div>
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="text-sm font-bold text-slate-700">指派给谁执行 *</label>
-                  <select className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-colors">
+                  <select value={newTask.assignTo} onChange={e => setNewTask({...newTask, assignTo: e.target.value})} className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-colors">
                      <option value="pool">放入待分派池 (抢单/主管后续指派)</option>
-                     <option>A栋服务组 - 张阿姨 (当前在线)</option>
-                     <option>护士站 - 王护士 (当前在线)</option>
-                     <option>康复科 - 李康复师 (当前离线)</option>
+                     {dispatchGroups.map((g, i) => (
+                        <option key={i} value={g.staff}>{g.station} - {g.staff}</option>
+                     ))}
                   </select>
                   <p className="text-xs text-slate-500 mt-1">选择具体人员后，工单将立刻通过推送通知下发到其移动设备。</p>
                 </div>
@@ -242,7 +249,32 @@ export function CareTasks() {
              
              <div className="p-5 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
                 <button onClick={() => setShowNewTaskModal(false)} className="px-6 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-300 rounded-xl hover:bg-slate-100 transition-colors">取消</button>
-                <button onClick={() => setShowNewTaskModal(false)} className="px-6 py-2.5 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-colors shadow-sm gap-2 flex items-center">
+                <button 
+                  disabled={!newTask.name}
+                  onClick={() => {
+                     const task = {
+                        id: `T-${Math.floor(Math.random() * 1000) + 900}`,
+                        elder: newTask.elder,
+                        time: newTask.time || '随时',
+                        type: '临时',
+                        name: newTask.name,
+                        status: 'todo'
+                     };
+                     if (newTask.assignTo === 'pool') {
+                        setUnassignedTasks(prev => [task, ...prev]);
+                     } else {
+                        setDispatchGroups(groups => groups.map(g => {
+                           if (g.staff === newTask.assignTo) {
+                              return { ...g, tasks: [task, ...g.tasks] };
+                           }
+                           return g;
+                        }));
+                     }
+                     setShowNewTaskModal(false);
+                     setNewTask({ name: '', elder: '无需关联特定长者 (公共区域任务)', time: '12:00', date: '', assignTo: 'pool' });
+                  }} 
+                  className="px-6 py-2.5 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-colors shadow-sm gap-2 flex items-center disabled:opacity-50"
+                >
                   确认并派发至设备
                   <Smartphone className="w-4 h-4 ml-1" />
                 </button>
@@ -250,6 +282,62 @@ export function CareTasks() {
           </div>
         </div>
       )}
+      {/* 指派工单弹窗 */}
+      {taskToAssign && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col animate-in zoom-in-95">
+             <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/50">
+                <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
+                   指派临时工单
+                </h3>
+                <button onClick={() => setTaskToAssign(null)} className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-200 transition-colors"><X className="w-5 h-5" /></button>
+             </div>
+             
+             <div className="p-5">
+                <div className="text-sm text-slate-600 mb-4 bg-amber-50 p-3 rounded-xl border border-amber-100">
+                  <div className="font-bold text-slate-800 mb-1">{taskToAssign.name}</div>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500"><User className="w-3.5 h-3.5"/> {taskToAssign.elder}</div>
+                </div>
+                
+                <div className="space-y-1.5">
+                  <label className="text-sm font-bold text-slate-700">选择执行人</label>
+                  <select value={assignTarget} onChange={e => setAssignTarget(e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-colors">
+                     <option value="" disabled>请选择...</option>
+                     {dispatchGroups.map((g, i) => (
+                        <option key={i} value={g.staff}>{g.station} - {g.staff}</option>
+                     ))}
+                  </select>
+                </div>
+             </div>
+             
+             <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+                <button onClick={() => setTaskToAssign(null)} className="px-5 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-300 rounded-xl hover:bg-slate-100 transition-colors">取消</button>
+                <button 
+                  disabled={!assignTarget}
+                  onClick={() => {
+                     setDispatchGroups(groups => groups.map(g => {
+                        if (g.staff === assignTarget) {
+                           return {
+                              ...g,
+                              tasks: [...g.tasks, { ...taskToAssign, status: 'todo' }]
+                           };
+                        }
+                        return g;
+                     }));
+                     setUnassignedTasks(tasks => tasks.filter(t => t.id !== taskToAssign.id));
+                     setTaskToAssign(null);
+                     setAssignTarget('');
+                  }} 
+                  className="px-5 py-2 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <ArrowRightLeft className="w-4 h-4"/>
+                  确认指派
+                </button>
+             </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

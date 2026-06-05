@@ -4,7 +4,7 @@ import { CheckCircle2, Search, FileText, Calendar, Share2, Download, Filter, Act
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useStore } from '../store';
 
-export function CareRecord({ embedded, elderId: initialElderId }: { embedded?: boolean; initialElderId?: string | null }) {
+export function CareRecord({ embedded, initialElderId }: { embedded?: boolean; initialElderId?: string | null }) {
   const [activeTab, setActiveTab] = useState('daily');
   const [selectedReport, setSelectedReport] = useState<any>(null);
   const [selectedElderId, setSelectedElderId] = useState<string | null>(initialElderId || null);
@@ -12,7 +12,9 @@ export function CareRecord({ embedded, elderId: initialElderId }: { embedded?: b
 
   const reports = [
     { 
-      id: "REP-2023-11", 
+      id: "REP-2023-11",
+      elderId: "ELD-001",
+      elderName: "张明宇",
       title: "2023年11月服务报告", 
       coverage: "2023-11-01 至 2023-11-30", 
       date: "2023-12-01",
@@ -39,6 +41,8 @@ export function CareRecord({ embedded, elderId: initialElderId }: { embedded?: b
     },
     { 
       id: "REP-2023-10", 
+      elderId: "ELD-002",
+      elderName: "李秀红",
       title: "2023年10月服务报告", 
       coverage: "2023-10-01 至 2023-10-31", 
       date: "2023-11-01",
@@ -160,19 +164,24 @@ export function CareRecord({ embedded, elderId: initialElderId }: { embedded?: b
                </div>
 
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {reports.map((report) => (
+                  {reports.filter(r => !selectedElderId || r.elderId === selectedElderId).map((report) => (
                     <Card key={report.id} className="border-slate-200 hover:border-indigo-300 transition-colors shadow-sm cursor-pointer" onClick={() => setSelectedReport(report)}>
                        <CardContent className="p-5">
                           <div className="flex justify-between items-start mb-3">
-                             <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex flex-col items-center justify-center">
+                             <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex flex-col items-center justify-center min-w-[40px]">
                                <FileText className="w-5 h-5 mb-0.5" />
                                <span className="text-[10px] font-bold">月报</span>
                              </div>
-                             <span className="text-xs font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded">已送达家属微信</span>
+                             <span className="text-xs font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded whitespace-nowrap">已送达家属微信</span>
                           </div>
                           <h3 className="font-bold text-slate-800 mb-1">{report.title}</h3>
-                          <div className="flex items-center gap-2 text-xs text-slate-500 mb-4">
-                            <Calendar className="w-3.5 h-3.5" /> 周期: {report.coverage}
+                          <div className="flex flex-col gap-1.5 text-xs text-slate-500 mb-4">
+                            <div className="flex items-center gap-2">
+                              <span className="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-medium">服务对象: {report.elderName}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Calendar className="w-3.5 h-3.5" /> 周期: {report.coverage}
+                            </div>
                           </div>
                           <div className="text-sm text-slate-600 line-clamp-2">
                              {report.healthSummary}
@@ -180,6 +189,9 @@ export function CareRecord({ embedded, elderId: initialElderId }: { embedded?: b
                        </CardContent>
                     </Card>
                   ))}
+                  {reports.filter(r => !selectedElderId || r.elderId === selectedElderId).length === 0 && (
+                    <div className="col-span-full py-10 text-center text-sm text-slate-500">暂无服务报告</div>
+                  )}
                </div>
             </div>
           )}
@@ -211,6 +223,7 @@ export function CareRecord({ embedded, elderId: initialElderId }: { embedded?: b
                    
                    <div className="text-center mb-8 border-b-2 border-indigo-900 pb-4">
                       <h1 className="text-2xl font-black text-slate-800 tracking-wider font-serif">{selectedReport.title}</h1>
+                      <div className="text-base font-bold text-indigo-700 mt-2">服务对象: {selectedReport.elderName}</div>
                       <div className="text-sm font-medium text-slate-500 mt-2 space-x-4">
                          <span>编号: {selectedReport.id}</span>
                          <span>生成日期: {selectedReport.date}</span>

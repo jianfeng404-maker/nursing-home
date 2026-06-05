@@ -7,7 +7,7 @@ export function BedManage() {
   const { 
     buildings, floors, rooms, roomTypes, 
     addBuilding, addFloor, addRoom, addRoomType,
-    removeRoom, removeRoomType
+    removeBuilding, removeFloor, removeRoom, removeRoomType
   } = useStore();
 
   const [activeTab, setActiveTab] = useState('rooms');

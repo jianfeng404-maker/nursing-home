@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { db } from '../lib/firebase';
+import { doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 export interface CareLevel {
   id: string;
@@ -112,7 +114,9 @@ interface Task {
   time: string;
   staff: string;
   status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
-  type: 'care' | 'medical' | 'entertainment' | 'cleaning';
+  type: 'care' | 'medical' | 'entertainment' | 'cleaning' | 'temporary';
+  medications?: string[];
+  requirements?: string;
 }
 
 export interface CareRecord {
@@ -152,7 +156,25 @@ export interface Assessment {
   answers?: Record<string, number>;
 }
 
-interface StoreState {
+export interface SysUser {
+  id: string; // Auth UID
+  username: string; // Email
+  name: string; // Display Name
+  roles: string[];
+  status: '正常' | '锁定';
+  lastLogin: string;
+}
+
+export interface SysRole {
+  id: string;
+  name: string;
+  code: string;
+  desc: string;
+  userCount: number;
+  permissions?: string[];
+}
+
+export interface StoreState {
   elders: Elder[];
   staff: StaffMember[];
   beds: Bed[];
@@ -167,6 +189,8 @@ interface StoreState {
   floors: Floor[];
   rooms: Room[];
   roomTypes: RoomType[];
+  sysUsers: SysUser[];
+  sysRoles: SysRole[];
   
   // Drawer Global State
   targetElderId: string | null;
@@ -221,32 +245,51 @@ interface StoreState {
   addRoomType: (roomType: RoomType) => void;
   updateRoomType: (id: string, roomType: Partial<RoomType>) => void;
   removeRoomType: (id: string) => void;
+
+  addSysUser: (user: SysUser) => void;
+  updateSysUser: (id: string, user: Partial<SysUser>) => void;
+  removeSysUser: (id: string) => void;
+
+  addSysRole: (role: SysRole) => void;
+  updateSysRole: (id: string, role: Partial<SysRole>) => void;
+  removeSysRole: (id: string) => void;
+
+  fetchInitialData: () => Promise<void>;
 }
 
 // Initial mock data to bootstrap the state
 const initialStaff: StaffMember[] = [
-  { id: "EMP-001", name: "张明宇", dept: "护理一部", position: "护理主管", phone: "138-0011-0001", status: "在职", role: "主管", avatar: "https://i.pravatar.cc/150?u=EMP-001", face: true, card: "1A:2B:3C", fingerprint: false, doors: ["园区正大门", "公共活动室", "康复理疗区"] },
-  { id: "EMP-002", name: "李秀兰", dept: "护理一部", position: "高级护理员", phone: "138-0011-0002", status: "在职", role: "员工", avatar: "https://i.pravatar.cc/150?u=EMP-002", face: false, card: null, fingerprint: false, doors: [] },
-  { id: "EMP-003", name: "王护工", dept: "护理部", position: "初级护理员", phone: "138-0011-0003", status: "在职", role: "员工", avatar: "https://i.pravatar.cc/150?u=EMP-003", face: true, card: "1A:2B:3C", fingerprint: false, doors: ["园区正大门", "公共活动室", "康复理疗区"] },
-  { id: "EMP-004", name: "张师傅", dept: "后勤部(仓库/厨房)", position: "后勤专员", phone: "138-0011-0005", status: "在职", role: "员工", avatar: "https://i.pravatar.cc/150?u=EMP-004", face: true, card: "5F:8A:21", fingerprint: false, doors: ["园区正大门", "厨房后场区", "物资仓库"] },
-  { id: "EMP-005", name: "刘医生", dept: "医疗中心", position: "全科医生", phone: "138-0011-0004", status: "在职", role: "主管", avatar: "https://i.pravatar.cc/150?u=EMP-005", face: false, card: null, fingerprint: false, doors: ["园区正大门", "医疗室", "药房", "行政办公区"] },
+  { id: "EMP-001", name: "张明宇", dept: "护理一部", position: "护理主管", phone: "138-0011-0001", status: "在职", role: "主管", avatar: "https://i.pravatar.cc/150?u=EMP-1", face: true, card: "1A:2B:3C", fingerprint: false, doors: ["园区正大门", "公共活动室", "康复理疗区"] },
+  { id: "EMP-002", name: "李雪", dept: "护理一部", position: "高级护理员", phone: "138-0011-0002", status: "在职", role: "员工", avatar: "https://i.pravatar.cc/150?u=EMP-2", face: false, card: null, fingerprint: false, doors: [] },
+  { id: "EMP-003", name: "赵铁柱", dept: "护理部", position: "初级护理员", phone: "138-0011-0003", status: "在职", role: "员工", avatar: "https://i.pravatar.cc/150?u=EMP-3", face: true, card: "1A:2B:3C", fingerprint: false, doors: ["园区正大门", "公共活动室", "康复理疗区"] },
+  { id: "EMP-004", name: "罗大牛", dept: "后勤部(仓库/厨房)", position: "后勤专员", phone: "138-0011-0005", status: "在职", role: "员工", avatar: "https://i.pravatar.cc/150?u=EMP-4", face: true, card: "5F:8A:21", fingerprint: false, doors: ["园区正大门", "厨房后场区", "物资仓库"] },
+  { id: "EMP-005", name: "孙国轩", dept: "医疗中心", position: "全科医生", phone: "138-0011-0004", status: "在职", role: "主管", avatar: "https://i.pravatar.cc/150?u=EMP-5", face: false, card: null, fingerprint: false, doors: ["园区正大门", "医疗室", "药房", "行政办公区"] },
+  { id: "EMP-006", name: "陈敏儿", dept: "护理部", position: "高级护理员", phone: "138-0011-0006", status: "在职", role: "员工", avatar: "https://i.pravatar.cc/150?u=EMP-6", face: true, card: "2A:3B:4C", fingerprint: false, doors: ["园区正大门", "公共活动室"] },
+  { id: "EMP-007", name: "周文华", dept: "行政部", position: "行政专员", phone: "138-0011-0007", status: "在职", role: "员工", avatar: "https://i.pravatar.cc/150?u=EMP-7", face: false, card: null, fingerprint: false, doors: ["园区正大门", "行政办公区"] },
+  { id: "EMP-008", name: "林建国", dept: "安保部", position: "安保队长", phone: "138-0011-0008", status: "在职", role: "主管", avatar: "https://i.pravatar.cc/150?u=EMP-8", face: true, card: "8B:9C:0D", fingerprint: true, doors: ["园区正大门", "监控室", "所有区域"] },
 ];
 
 const initialElders: Elder[] = [
-  { id: '1', name: '张阿姨', room: 'A栋-101', age: 78, gender: '女', careLevel: '二级护理', healthStatus: '高血压', admissionDate: '2023-05-12', avatar: 'https://i.pravatar.cc/150?u=elder1', face: true, card: null, fingerprint: true, doors: ["园区正大门", "公共活动室", "康复理疗区"] },
-  { id: '2', name: '李建国', room: 'B栋-205', age: 82, gender: '男', careLevel: '特级护理', healthStatus: '糖尿病, 行动不便', admissionDate: '2022-11-08', avatar: 'https://i.pravatar.cc/150?u=elder2', face: false, card: null, fingerprint: false, doors: [] },
-  { id: '3', name: '王秀英', room: 'A栋-102', age: 76, gender: '女', careLevel: '三级护理', healthStatus: '心血管疾病', admissionDate: '2021-03-20', avatar: 'https://i.pravatar.cc/150?u=elder3', face: false, card: null, fingerprint: false, doors: [] },
-  { id: '4', name: '刘振华', room: 'A栋-101', age: 85, gender: '男', careLevel: '一级护理', healthStatus: '阿尔茨海默症早期表现', admissionDate: '2022-08-15', avatar: 'https://i.pravatar.cc/150?u=elder4', face: true, card: null, fingerprint: false, doors: ["园区正大门", "公共活动室"] },
-  { id: '5', name: '郑凤英', room: 'A栋-102', age: 72, gender: '女', careLevel: '三级护理', healthStatus: '一般', admissionDate: '2024-01-10', avatar: 'https://i.pravatar.cc/150?u=elder5', face: true, card: 'FC:11:8A', fingerprint: true, doors: ["园区正大门", "公共活动室", "手工艺室"] },
-  { id: '6', name: '孙福林', room: 'A栋-103', age: 88, gender: '男', careLevel: '特级护理', healthStatus: '冠心病，常年卧床', admissionDate: '2020-12-05', avatar: 'https://i.pravatar.cc/150?u=elder6', face: false, card: null, fingerprint: false, doors: [] },
-  { id: '7', name: '钱文琪', room: 'A栋-201', age: 69, gender: '女', careLevel: '三级护理', healthStatus: '骨质疏松，视力不佳', admissionDate: '2023-07-22', avatar: 'https://i.pravatar.cc/150?u=elder7', face: true, card: null, fingerprint: true, doors: ["园区正大门", "公共活动室", "阅览室"] },
-  { id: '8', name: '周志明', room: 'A栋-201', age: 74, gender: '男', careLevel: '二级护理', healthStatus: '慢性支气管炎', admissionDate: '2023-09-01', avatar: 'https://i.pravatar.cc/150?u=elder8', face: true, card: null, fingerprint: false, doors: ["园区正大门", "棋牌室"] },
-  { id: '9', name: '吴玉兰', room: 'A栋-202', age: 81, gender: '女', careLevel: '一级护理', healthStatus: '中风后遗症，偏瘫', admissionDate: '2021-10-18', avatar: 'https://i.pravatar.cc/150?u=elder9', face: false, card: null, fingerprint: false, doors: [] },
-  { id: '10', name: '陈国强', room: 'A栋-203', age: 79, gender: '男', careLevel: '二级护理', healthStatus: '帕金森综合症', admissionDate: '2022-04-30', avatar: 'https://i.pravatar.cc/150?u=elder10', face: true, card: null, fingerprint: false, doors: ["园区正大门", "康复理疗区"] },
-  { id: '11', name: '郭丽华', room: 'A栋-105', age: 75, gender: '女', careLevel: '二级护理', healthStatus: '糖尿病', admissionDate: '2023-11-12', avatar: 'https://i.pravatar.cc/150?u=elder11', face: true, card: null, fingerprint: true, doors: ["园区正大门", "公共活动室"] },
-  { id: '12', name: '何建明', room: 'A栋-105', age: 80, gender: '男', careLevel: '一级护理', healthStatus: '高血压、脑梗后遗症', admissionDate: '2022-02-28', avatar: 'https://i.pravatar.cc/150?u=elder12', face: false, card: null, fingerprint: false, doors: [] },
-  { id: '13', name: '林淑珍', room: 'A栋-202', age: 77, gender: '女', careLevel: '三级护理', healthStatus: '一般', admissionDate: '2024-03-05', avatar: 'https://i.pravatar.cc/150?u=elder13', face: true, card: 'AA:BB:CC', fingerprint: true, doors: ["园区正大门", "公共活动室", "阅览室"] },
-  { id: '14', name: '马宝国', room: 'B栋-205', age: 86, gender: '男', careLevel: '特级护理', healthStatus: '长期卧床、需要全面护理', admissionDate: '2021-08-20', avatar: 'https://i.pravatar.cc/150?u=elder14', face: false, card: null, fingerprint: false, doors: [] },
+  { id: '1', name: '王桂珍', room: 'A栋-101', age: 78, gender: '女', careLevel: '二级护理', healthStatus: '高血压', admissionDate: '2023-05-12', avatar: 'https://i.pravatar.cc/150?u=ELD-1', face: true, card: null, fingerprint: true, doors: ["园区正大门", "公共活动室", "康复理疗区"] },
+  { id: '2', name: '钱德明', room: 'B栋-205', age: 82, gender: '男', careLevel: '特级护理', healthStatus: '糖尿病, 行动不便', admissionDate: '2022-11-08', avatar: 'https://i.pravatar.cc/150?u=ELD-2', face: false, card: null, fingerprint: false, doors: [] },
+  { id: '3', name: '吴秀兰', room: 'A栋-102', age: 76, gender: '女', careLevel: '三级护理', healthStatus: '心血管疾病', admissionDate: '2021-03-20', avatar: 'https://i.pravatar.cc/150?u=ELD-3', face: false, card: null, fingerprint: false, doors: [] },
+  { id: '4', name: '冯国强', room: 'A栋-101', age: 85, gender: '男', careLevel: '一级护理', healthStatus: '阿尔茨海默症早期表现', admissionDate: '2022-08-15', avatar: 'https://i.pravatar.cc/150?u=ELD-4', face: true, card: null, fingerprint: false, doors: ["园区正大门", "公共活动室"] },
+  { id: '5', name: '楚玉英', room: 'A栋-102', age: 72, gender: '女', careLevel: '三级护理', healthStatus: '一般', admissionDate: '2024-01-10', avatar: 'https://i.pravatar.cc/150?u=ELD-5', face: true, card: 'FC:11:8A', fingerprint: true, doors: ["园区正大门", "公共活动室", "手工艺室"] },
+  { id: '6', name: '卫广平', room: 'A栋-103', age: 88, gender: '男', careLevel: '特级护理', healthStatus: '冠心病，常年卧床', admissionDate: '2020-12-05', avatar: 'https://i.pravatar.cc/150?u=ELD-6', face: false, card: null, fingerprint: false, doors: [] },
+  { id: '7', name: '蒋雪梅', room: 'A栋-201', age: 69, gender: '女', careLevel: '三级护理', healthStatus: '骨质疏松，视力不佳', admissionDate: '2023-07-22', avatar: 'https://i.pravatar.cc/150?u=ELD-7', face: true, card: null, fingerprint: true, doors: ["园区正大门", "公共活动室", "阅览室"] },
+  { id: '8', name: '沈建设', room: 'A栋-201', age: 74, gender: '男', careLevel: '二级护理', healthStatus: '慢性支气管炎', admissionDate: '2023-09-01', avatar: 'https://i.pravatar.cc/150?u=ELD-8', face: true, card: null, fingerprint: false, doors: ["园区正大门", "棋牌室"] },
+  { id: '9', name: '韩佩云', room: 'A栋-202', age: 81, gender: '女', careLevel: '一级护理', healthStatus: '中风后遗症，偏瘫', admissionDate: '2021-10-18', avatar: 'https://i.pravatar.cc/150?u=ELD-9', face: false, card: null, fingerprint: false, doors: [] },
+  { id: '10', name: '杨德培', room: 'A栋-203', age: 79, gender: '男', careLevel: '二级护理', healthStatus: '帕金森综合症', admissionDate: '2022-04-30', avatar: 'https://i.pravatar.cc/150?u=ELD-10', face: true, card: null, fingerprint: false, doors: ["园区正大门", "康复理疗区"] },
+  { id: '11', name: '朱金凤', room: 'A栋-105', age: 75, gender: '女', careLevel: '二级护理', healthStatus: '糖尿病', admissionDate: '2023-11-12', avatar: 'https://i.pravatar.cc/150?u=ELD-11', face: true, card: null, fingerprint: true, doors: ["园区正大门", "公共活动室"] },
+  { id: '12', name: '秦振宇', room: 'A栋-105', age: 80, gender: '男', careLevel: '一级护理', healthStatus: '高血压、脑梗后遗症', admissionDate: '2022-02-28', avatar: 'https://i.pravatar.cc/150?u=ELD-12', face: false, card: null, fingerprint: false, doors: [] },
+  { id: '13', name: '尤秋叶', room: 'A栋-202', age: 77, gender: '女', careLevel: '三级护理', healthStatus: '一般', admissionDate: '2024-03-05', avatar: 'https://i.pravatar.cc/150?u=ELD-13', face: true, card: 'AA:BB:CC', fingerprint: true, doors: ["园区正大门", "公共活动室", "阅览室"] },
+  { id: '14', name: '许万才', room: 'B栋-205', age: 86, gender: '男', careLevel: '特级护理', healthStatus: '长期卧床、需要全面护理', admissionDate: '2021-08-20', avatar: 'https://i.pravatar.cc/150?u=ELD-14', face: false, card: null, fingerprint: false, doors: [] },
+  { id: '15', name: '吕淑芳', room: 'A栋-103', age: 71, gender: '女', careLevel: '自理护理', healthStatus: '骨关节炎', admissionDate: '2024-05-18', avatar: 'https://i.pravatar.cc/150?u=ELD-15', face: true, card: null, fingerprint: false, doors: ["园区正大门", "公共活动室"] },
+  { id: '16', name: '张宝林', room: 'B栋-201', age: 84, gender: '男', careLevel: '二级护理', healthStatus: '前列腺增生，轻度认知衰退', admissionDate: '2022-01-20', avatar: 'https://i.pravatar.cc/150?u=ELD-16', face: false, card: null, fingerprint: false, doors: ["园区正大门"] },
+  { id: '17', name: '曹翠屏', room: 'C栋-302', age: 89, gender: '女', careLevel: '特级护理', healthStatus: '老年病综合征，营养不良', admissionDate: '2020-03-10', avatar: 'https://i.pravatar.cc/150?u=ELD-17', face: false, card: null, fingerprint: false, doors: [] },
+  { id: '18', name: '孔祥辉', room: 'A栋-203', age: 73, gender: '男', careLevel: '一级护理', healthStatus: '痛风，下肢静脉曲张', admissionDate: '2023-08-05', avatar: 'https://i.pravatar.cc/150?u=ELD-18', face: true, card: null, fingerprint: true, doors: ["园区正大门", "公共活动室", "棋牌室"] },
+  { id: '19', name: '施玉英', room: 'B栋-202', age: 81, gender: '女', careLevel: '二级护理', healthStatus: '轻度贫血，骨质疏松', admissionDate: '2023-12-11', avatar: 'https://i.pravatar.cc/150?u=ELD-19', face: true, card: null, fingerprint: false, doors: ["园区正大门", "阅览室"] },
+  { id: '20', name: '华志明', room: 'C栋-301', age: 78, gender: '男', careLevel: '自理护理', healthStatus: '健康状况良好，高血脂', admissionDate: '2024-06-01', avatar: 'https://i.pravatar.cc/150?u=ELD-20', face: true, card: "AA:11:22", fingerprint: true, doors: ["园区正大门", "公共活动室", "康复理疗区", "棋牌室", "健身房"] },
 ];
 
 const initialBeds: Bed[] = [
@@ -274,7 +317,7 @@ const initialAlerts: Alert[] = [
     type: "fall",
     title: "发生跌倒告警",
     location: "102-1",
-    resident: "王秀英",
+    resident: "吴秀兰",
     device: "毫米波雷达",
     time: "2分钟前",
     level: "critical",
@@ -285,7 +328,7 @@ const initialAlerts: Alert[] = [
     type: "sos",
     title: "紧急呼叫告警",
     location: "101-1",
-    resident: "张阿姨",
+    resident: "王桂珍",
     device: "床头呼叫器",
     time: "刚刚",
     level: "critical",
@@ -294,21 +337,21 @@ const initialAlerts: Alert[] = [
 ];
 
 const initialTasks: Task[] = [
-  { id: '1', name: '辅助服药 (降压药)', elder: '张阿姨 (A栋-101)', time: '10:30', staff: '待指派', status: 'pending', type: 'medical' },
-  { id: '2', name: '协助沐浴', elder: '李大爷 (B栋-205)', time: '14:00', staff: '张护工', status: 'in_progress', type: 'care' },
-  { id: '3', name: '环境消杀', elder: '公共区域', time: '16:00', staff: '保洁组', status: 'pending', type: 'cleaning' },
+  { id: '1', name: '辅助服药 (降压药)', elder: '王桂珍 (A栋-101)', time: '10:30', staff: '待指派', status: 'pending', type: 'medical' },
+  { id: '2', name: '协助沐浴', elder: '钱德明 (B栋-205)', time: '14:00', staff: '赵铁柱', status: 'in_progress', type: 'care' },
+  { id: '3', name: '环境消杀', elder: '公共区域', time: '16:00', staff: '罗大牛', status: 'pending', type: 'cleaning' },
 ];
 
 const initialCareRecords: CareRecord[] = [
-  { id: 'REC-001', time: '2023-10-27 08:30:00', type: 'planned_task', content: '晨间护理及测血压', result: '血压130/80，心率75，状态可', elderId: '1', elderName: '张阿姨', caregiver: '李雪' },
-  { id: 'REC-002', time: '2023-10-27 09:15:00', type: 'temporary_care', content: '更换床单被套', result: '已更换', elderId: '3', elderName: '王秀英', caregiver: '张峰' },
+  { id: 'REC-001', time: '2023-10-27 08:30:00', type: 'planned_task', content: '晨间护理及测血压', result: '血压130/80，心率75，状态可', elderId: '1', elderName: '王桂珍', caregiver: '张明宇' },
+  { id: 'REC-002', time: '2023-10-27 09:15:00', type: 'temporary_care', content: '更换床单被套', result: '已更换', elderId: '3', elderName: '吴秀兰', caregiver: '李雪' },
 ];
 
 const initialIotDevices: IoTDevice[] = [
-  { id: "DEV-RD-101", sn: "SN88492011", name: "101套房主卫防跌倒", catalog: "毫米波防跌倒雷达", bindType: "位置绑定", bindTarget: "A栋-1层-101房-卫生间", status: "在线", lastActive: "刚刚", ip: "192.168.10.15", elderId: "ELD-001" },
-  { id: "DEV-RD-102", sn: "SN88492012", name: "102套房主卫防跌倒", catalog: "毫米波防跌倒雷达", bindType: "位置绑定", bindTarget: "A栋-1层-102房-卫生间", status: "在线", lastActive: "5分钟前", ip: "192.168.10.16", elderId: "ELD-003" },
-  { id: "DEV-SOS-01", sn: "SN-S-00102", name: "张阿姨随身呼叫器", catalog: "一键紧急呼叫器", bindType: "人员绑定", bindTarget: "张阿姨 (A101)", status: "在线", lastActive: "刚刚", ip: "Zigbee 网关", elderId: "ELD-001" },
-  { id: "DEV-MAT-05", sn: "SM300-99X2", name: "A105智能床垫", catalog: "智能体征监测床垫", bindType: "床位绑定", bindTarget: "A栋-105房-1号床", status: "离线", lastActive: "2小时前", ip: "4G网络", elderId: "ELD-001" },
+  { id: "DEV-RD-101", sn: "SN88492011", name: "101套房主卫防跌倒", catalog: "毫米波防跌倒雷达", bindType: "位置绑定", bindTarget: "A栋-1层-101房-卫生间", status: "在线", lastActive: "刚刚", ip: "192.168.10.15", elderId: "1" },
+  { id: "DEV-RD-102", sn: "SN88492012", name: "102套房主卫防跌倒", catalog: "毫米波防跌倒雷达", bindType: "位置绑定", bindTarget: "A栋-1层-102房-卫生间", status: "在线", lastActive: "5分钟前", ip: "192.168.10.16", elderId: "3" },
+  { id: "DEV-SOS-01", sn: "SN-S-00102", name: "随身呼叫器", catalog: "一键紧急呼叫器", bindType: "人员绑定", bindTarget: "王桂珍 (A101)", status: "在线", lastActive: "刚刚", ip: "Zigbee 网关", elderId: "1" },
+  { id: "DEV-MAT-05", sn: "SM300-99X2", name: "A105智能床垫", catalog: "智能体征监测床垫", bindType: "床位绑定", bindTarget: "A栋-105房-1号床", status: "离线", lastActive: "2小时前", ip: "4G网络", elderId: "1" },
 ];
 
 export const initialCareLevels: CareLevel[] = [
@@ -483,12 +526,24 @@ export const initialServiceItems: ServiceItem[] = [
 ];
 
 const initialAssessments: Assessment[] = [
-  { id: "ASM-001", elderId: "1", elderName: "张阿姨", room: "A栋-101", type: "日常生活能力评定 (ADL / Barthel)", score: "65", assessor: "张明宇", date: "2023-11-20", status: "已完成" },
-  { id: "ASM-002", elderId: "2", elderName: "李建国", room: "B栋-205", type: "精神状态评估 (MMSE)", score: "12", assessor: "刘医生", date: "2023-10-15", status: "已完成" },
-  { id: "ASM-003", elderId: "3", elderName: "王秀英", room: "A栋-102", type: "跌倒坠床风险评估 (Morse)", score: "-", assessor: "李秀兰", date: "2023-11-25", status: "待评估" }
+  { id: "ASM-001", elderId: "1", elderName: "王桂珍", room: "A栋-101", type: "日常生活能力评定 (ADL / Barthel)", score: "65", assessor: "张明宇", date: "2023-11-20", status: "已完成" },
+  { id: "ASM-002", elderId: "2", elderName: "钱德明", room: "B栋-205", type: "精神状态评估 (MMSE)", score: "12", assessor: "孙国轩", date: "2023-10-15", status: "已完成" },
+  { id: "ASM-003", elderId: "3", elderName: "吴秀兰", room: "A栋-102", type: "跌倒坠床风险评估 (Morse)", score: "-", assessor: "李雪", date: "2023-11-25", status: "待评估" }
+];
+
+const initialSysUsers: SysUser[] = [
+  { id: 'U1', username: 'admin@system.com', name: '系统管理员', roles: ['超级管理员'], status: '正常', lastLogin: '-' }
+];
+
+const initialSysRoles: SysRole[] = [
+  { id: 'R1', name: '超级管理员', code: 'admin', desc: '拥有系统所有权限', userCount: 1 },
+  { id: 'R2', name: '部门主管', code: 'dept_manager', desc: '负责部门内人员和排班', userCount: 0 },
+  { id: 'R3', name: '护理员', code: 'caregiver', desc: '一线护理人员，处理任务', userCount: 0 },
 ];
 
 export const useStore = create<StoreState>((set) => ({
+  sysUsers: initialSysUsers,
+  sysRoles: initialSysRoles,
   elders: initialElders,
   staff: initialStaff,
   beds: initialBeds,
@@ -528,32 +583,60 @@ export const useStore = create<StoreState>((set) => ({
   setTargetAction: (action) => set({ targetAction: action }),
   setTargetElderTab: (tab) => set({ targetElderTab: tab }),
   
-  addElder: (elder) => set((state) => ({ elders: [...state.elders, elder] })),
-  updateElder: (id, updatedElder) => set((state) => ({
-    elders: state.elders.map(e => e.id === id ? { ...e, ...updatedElder } : e)
-  })),
-  removeElder: (id) => set((state) => ({ elders: state.elders.filter(e => e.id !== id) })),
+  addElder: (elder) => {
+    setDoc(doc(db, 'elders', elder.id), elder).catch(console.error);
+    set((state) => ({ elders: [...state.elders, elder] }));
+  },
+  updateElder: (id, updatedElder) => {
+    updateDoc(doc(db, 'elders', id), updatedElder).catch(console.error);
+    set((state) => ({
+      elders: state.elders.map(e => e.id === id ? { ...e, ...updatedElder } : e)
+    }));
+  },
+  removeElder: (id) => {
+    deleteDoc(doc(db, 'elders', id)).catch(console.error);
+    set((state) => ({ elders: state.elders.filter(e => e.id !== id) }));
+  },
   
-  addStaff: (staff) => set((state) => ({ staff: [...state.staff, staff] })),
-  updateStaff: (id, updatedStaff) => set((state) => ({
-    staff: state.staff.map(s => s.id === id ? { ...s, ...updatedStaff } : s)
-  })),
-  removeStaff: (id) => set((state) => ({ staff: state.staff.filter(s => s.id !== id) })),
+  addStaff: (staff) => {
+    setDoc(doc(db, 'staff', staff.id), staff).catch(console.error);
+    set((state) => ({ staff: [...state.staff, staff] }));
+  },
+  updateStaff: (id, updatedStaff) => {
+    updateDoc(doc(db, 'staff', id), updatedStaff).catch(console.error);
+    set((state) => ({
+      staff: state.staff.map(s => s.id === id ? { ...s, ...updatedStaff } : s)
+    }));
+  },
+  removeStaff: (id) => {
+    deleteDoc(doc(db, 'staff', id)).catch(console.error);
+    set((state) => ({ staff: state.staff.filter(s => s.id !== id) }));
+  },
   
-  updateBed: (id, bed) => set((state) => ({
-    beds: state.beds.map(b => b.id === id ? { ...b, ...bed } : b)
-  })),
+  updateBed: (id, bed) => {
+    updateDoc(doc(db, 'beds', id), bed).catch(console.error);
+    set((state) => ({
+      beds: state.beds.map(b => b.id === id ? { ...b, ...bed } : b)
+    }));
+  },
   
-  addAlert: (alert) => set((state) => ({ alerts: [alert, ...state.alerts] })),
-  updateAlertStatus: (id, status) => set((state) => ({
-    alerts: state.alerts.map(a => a.id === id ? { ...a, status } : a)
-  })),
+  addAlert: (alert) => {
+    setDoc(doc(db, 'alerts', alert.id), alert).catch(console.error);
+    set((state) => ({ alerts: [alert, ...state.alerts] }));
+  },
+  updateAlertStatus: (id, status) => {
+    updateDoc(doc(db, 'alerts', id), { status }).catch(console.error);
+    set((state) => ({
+      alerts: state.alerts.map(a => a.id === id ? { ...a, status } : a)
+    }));
+  },
   resolveAlert: (id, notes, processedBy) => set((state) => {
     const alert = state.alerts.find(a => a.id === id);
     let newRecords = state.careRecords;
     
     if (alert) {
-      // Find the corresponding elder ID
+      updateDoc(doc(db, 'alerts', id), { status: 'resolved', notes, processedBy }).catch(console.error);
+      
       const bed = state.beds.find(b => b.id === alert.location);
       const elder = state.elders.find(e => e.name === alert.resident || (bed && e.id === bed.elderId));
       
@@ -568,6 +651,7 @@ export const useStore = create<StoreState>((set) => ({
           elderName: elder.name,
           caregiver: processedBy
         };
+        setDoc(doc(db, 'careRecords', record.id), record).catch(console.error);
         newRecords = [record, ...state.careRecords];
       }
     }
@@ -578,13 +662,66 @@ export const useStore = create<StoreState>((set) => ({
     };
   }),
   
-  addTask: (task) => set((state) => ({ tasks: [task, ...state.tasks] })),
-  updateTaskStatus: (id, status) => set((state) => ({
-    tasks: state.tasks.map(t => t.id === id ? { ...t, status } : t)
-  })),
-  updateTaskStaff: (id, staff) => set((state) => ({
-    tasks: state.tasks.map(t => t.id === id ? { ...t, staff, status: 'pending' as const } : t)
-  })),
+  addTask: (task) => {
+    setDoc(doc(db, 'tasks', task.id), task).catch(console.error);
+    set((state) => ({ tasks: [task, ...state.tasks] }));
+  },
+  updateTaskStatus: (id, status) => {
+    updateDoc(doc(db, 'tasks', id), { status }).catch(console.error);
+    set((state) => {
+      const taskIndex = state.tasks.findIndex(t => t.id === id);
+      if (taskIndex === -1) return state;
+      
+      const task = state.tasks[taskIndex];
+      if (task.status === status) return state; // no change
+
+      const newTasks = [...state.tasks];
+      newTasks[taskIndex] = { ...task, status };
+
+      if (status === 'completed') {
+        const elderNameMatch = task.elder.match(/^([^\s\(]+)/);
+        const elderName = elderNameMatch ? elderNameMatch[1] : task.elder;
+        
+        let details = '操作人打卡：已完成任务。情况正常，长者配合。';
+        if (task.type === 'medical') {
+          details = `服药打卡：${task.medications ? task.medications.join(', ') : '按医嘱服药'}。长者已服下。`;
+        } else if (task.type === 'cleaning') {
+          details = '保洁打卡：清洁消毒完毕，环境整洁。';
+        }
+
+        // Format date to YYYY-MM-DD HH:mm:ss
+        const now = new Date();
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        const timeStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+        const newRecord: CareRecord = {
+          id: `REC-${Date.now()}`,
+          elderId: `ELD-${Math.floor(Math.random() * 900) + 100}`, 
+          elderName: elderName,
+          type: task.type === 'temporary' ? 'temporary_care' : 'planned_task',
+          content: task.name,
+          result: details,
+          caregiver: task.staff !== '待指派' && task.staff !== '未指派' ? task.staff : '值班护工',
+          time: timeStr
+        };
+        
+        setDoc(doc(db, 'careRecords', newRecord.id), newRecord).catch(console.error);
+
+        return { 
+          tasks: newTasks,
+          careRecords: [newRecord, ...state.careRecords]
+        };
+      }
+
+      return { tasks: newTasks };
+    });
+  },
+  updateTaskStaff: (id, staff) => {
+    updateDoc(doc(db, 'tasks', id), { staff, status: 'pending' }).catch(console.error);
+    set((state) => ({
+      tasks: state.tasks.map(t => t.id === id ? { ...t, staff, status: 'pending' as const } : t)
+    }));
+  },
   autoAssignTasks: () => set((state) => {
     // Simple mock logic: assign pending tasks to random staff who is '在线'
     const onlineStaff = state.staff.filter(s => s.status === '在线');
@@ -593,38 +730,142 @@ export const useStore = create<StoreState>((set) => ({
     const updatedTasks = state.tasks.map(t => {
       if (t.staff === '未指派' || t.staff === '待指派' || t.staff === '自动排程未指派' || !t.staff) {
         const randomStaff = onlineStaff[Math.floor(Math.random() * onlineStaff.length)];
-        return { ...t, staff: randomStaff.name, status: 'pending' as const };
+        const newTask = { ...t, staff: randomStaff.name, status: 'pending' as const };
+        updateDoc(doc(db, 'tasks', t.id), { staff: newTask.staff, status: newTask.status }).catch(console.error);
+        return newTask;
       }
       return t;
     });
     return { ...state, tasks: updatedTasks };
   }),
 
-  addCareRecord: (record) => set((state) => ({ careRecords: [record, ...state.careRecords] })),
+  addCareRecord: (record) => {
+    setDoc(doc(db, 'careRecords', record.id), record).catch(console.error);
+    set((state) => ({ careRecords: [record, ...state.careRecords] }));
+  },
 
-  bindIoTDevice: (device) => set((state) => ({ iotDevices: [device, ...state.iotDevices] })),
+  bindIoTDevice: (device) => {
+    setDoc(doc(db, 'iotDevices', device.id), device).catch(console.error);
+    set((state) => ({ iotDevices: [device, ...state.iotDevices] }));
+  },
 
-  setCareLevels: (levels) => set({ careLevels: levels }),
-  setServiceItems: (items) => set({ serviceItems: items }),
+  setCareLevels: (levels) => {
+    levels.forEach(level => setDoc(doc(db, 'careLevels', level.id), level).catch(console.error));
+    set({ careLevels: levels });
+  },
+  setServiceItems: (items) => {
+    items.forEach(item => setDoc(doc(db, 'serviceItems', item.id), item).catch(console.error));
+    set({ serviceItems: items });
+  },
 
-  addAssessment: (assessment) => set((state) => ({ assessments: [assessment, ...state.assessments] })),
-  updateAssessment: (id, updates) => set((state) => ({
-    assessments: state.assessments.map(a => a.id === id ? { ...a, ...updates } : a)
-  })),
+  addAssessment: (assessment) => {
+    setDoc(doc(db, 'assessments', assessment.id), assessment).catch(console.error);
+    set((state) => ({ assessments: [assessment, ...state.assessments] }));
+  },
+  updateAssessment: (id, updates) => {
+    updateDoc(doc(db, 'assessments', id), updates).catch(console.error);
+    set((state) => ({ assessments: state.assessments.map(a => a.id === id ? { ...a, ...updates } : a) }));
+  },
 
-  addBuilding: (building) => set((state) => ({ buildings: [...state.buildings, building] })),
-  updateBuilding: (id, updated) => set((state) => ({ buildings: state.buildings.map(b => b.id === id ? { ...b, ...updated } : b) })),
-  removeBuilding: (id) => set((state) => ({ buildings: state.buildings.filter(b => b.id !== id) })),
+  addBuilding: (building) => {
+    setDoc(doc(db, 'buildings', building.id), building).catch(console.error);
+    set((state) => ({ buildings: [...state.buildings, building] }));
+  },
+  updateBuilding: (id, updated) => {
+    updateDoc(doc(db, 'buildings', id), updated).catch(console.error);
+    set((state) => ({ buildings: state.buildings.map(b => b.id === id ? { ...b, ...updated } : b) }));
+  },
+  removeBuilding: (id) => {
+    deleteDoc(doc(db, 'buildings', id)).catch(console.error);
+    set((state) => ({ buildings: state.buildings.filter(b => b.id !== id) }));
+  },
 
-  addFloor: (floor) => set((state) => ({ floors: [...state.floors, floor] })),
-  updateFloor: (id, updated) => set((state) => ({ floors: state.floors.map(f => f.id === id ? { ...f, ...updated } : f) })),
-  removeFloor: (id) => set((state) => ({ floors: state.floors.filter(f => f.id !== id) })),
+  addFloor: (floor) => {
+    setDoc(doc(db, 'floors', floor.id), floor).catch(console.error);
+    set((state) => ({ floors: [...state.floors, floor] }));
+  },
+  updateFloor: (id, updated) => {
+    updateDoc(doc(db, 'floors', id), updated).catch(console.error);
+    set((state) => ({ floors: state.floors.map(f => f.id === id ? { ...f, ...updated } : f) }));
+  },
+  removeFloor: (id) => {
+    deleteDoc(doc(db, 'floors', id)).catch(console.error);
+    set((state) => ({ floors: state.floors.filter(f => f.id !== id) }));
+  },
 
-  addRoom: (room) => set((state) => ({ rooms: [...state.rooms, room] })),
-  updateRoom: (id, updated) => set((state) => ({ rooms: state.rooms.map(r => r.id === id ? { ...r, ...updated } : r) })),
-  removeRoom: (id) => set((state) => ({ rooms: state.rooms.filter(r => r.id !== id) })),
+  addRoom: (room) => {
+    setDoc(doc(db, 'rooms', room.id), room).catch(console.error);
+    set((state) => ({ rooms: [...state.rooms, room] }));
+  },
+  updateRoom: (id, updated) => {
+    updateDoc(doc(db, 'rooms', id), updated).catch(console.error);
+    set((state) => ({ rooms: state.rooms.map(r => r.id === id ? { ...r, ...updated } : r) }));
+  },
+  removeRoom: (id) => {
+    deleteDoc(doc(db, 'rooms', id)).catch(console.error);
+    set((state) => ({ rooms: state.rooms.filter(r => r.id !== id) }));
+  },
 
-  addRoomType: (rt) => set((state) => ({ roomTypes: [...state.roomTypes, rt] })),
-  updateRoomType: (id, updated) => set((state) => ({ roomTypes: state.roomTypes.map(t => t.id === id ? { ...t, ...updated } : t) })),
-  removeRoomType: (id) => set((state) => ({ roomTypes: state.roomTypes.filter(t => t.id !== id) })),
+  addRoomType: (rt) => {
+    setDoc(doc(db, 'roomTypes', rt.id), rt).catch(console.error);
+    set((state) => ({ roomTypes: [...state.roomTypes, rt] }));
+  },
+  updateRoomType: (id, updated) => {
+    updateDoc(doc(db, 'roomTypes', id), updated).catch(console.error);
+    set((state) => ({ roomTypes: state.roomTypes.map(t => t.id === id ? { ...t, ...updated } : t) }));
+  },
+  removeRoomType: (id) => {
+    deleteDoc(doc(db, 'roomTypes', id)).catch(console.error);
+    set((state) => ({ roomTypes: state.roomTypes.filter(t => t.id !== id) }));
+  },
+
+  addSysUser: (user) => {
+    setDoc(doc(db, 'sysUsers', user.id), user).catch(console.error);
+    set((state) => ({ sysUsers: [...state.sysUsers, user] }));
+  },
+  updateSysUser: (id, updated) => {
+    updateDoc(doc(db, 'sysUsers', id), updated).catch(console.error);
+    set((state) => ({ sysUsers: state.sysUsers.map(u => u.id === id ? { ...u, ...updated } : u) }));
+  },
+  removeSysUser: (id) => {
+    deleteDoc(doc(db, 'sysUsers', id)).catch(console.error);
+    set((state) => ({ sysUsers: state.sysUsers.filter(u => u.id !== id) }));
+  },
+
+  addSysRole: (role) => {
+    setDoc(doc(db, 'sysRoles', role.id), role).catch(console.error);
+    set((state) => ({ sysRoles: [...state.sysRoles, role] }));
+  },
+  updateSysRole: (id, updated) => {
+    updateDoc(doc(db, 'sysRoles', id), updated).catch(console.error);
+    set((state) => ({ sysRoles: state.sysRoles.map(r => r.id === id ? { ...r, ...updated } : r) }));
+  },
+  removeSysRole: (id) => {
+    deleteDoc(doc(db, 'sysRoles', id)).catch(console.error);
+    set((state) => ({ sysRoles: state.sysRoles.filter(r => r.id !== id) }));
+  },
+
+  fetchInitialData: async () => {
+    try {
+      const [eldersRes, tasksRes, alertsRes] = await Promise.all([
+        fetch('/api/elders'),
+        fetch('/api/tasks'),
+        fetch('/api/alerts')
+      ]);
+      if (eldersRes.ok) {
+        const elders = await eldersRes.json();
+        set({ elders });
+      }
+      if (tasksRes.ok) {
+        const tasks = await tasksRes.json();
+        set({ tasks });
+      }
+      if (alertsRes.ok) {
+        const alerts = await alertsRes.json();
+        set({ alerts });
+      }
+    } catch (e) {
+      console.error('Failed to load initial data from backend', e);
+    }
+  }
 }));

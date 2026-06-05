@@ -1,9 +1,14 @@
-import React from "react";
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import { Toaster } from 'sonner';
+import { useStore } from './store';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { Dashboard } from './pages/Dashboard';
+import { useFirebase } from './hooks/useFirebase';
+
+import { LoginForm } from './components/LoginForm';
+
+// imports...
 import { TaskDispatch } from './pages/TaskDispatch';
 import { MarketingReception } from './pages/MarketingReception';
 import { CustomerArchives } from './pages/CustomerArchives';
@@ -68,8 +73,11 @@ import { SecurityGeofence } from './pages/SecurityGeofence';
 import { ContractManage } from './pages/ContractManage';
 import { MaterialConsume } from './pages/MaterialConsume';
 import { MedicationManage } from './pages/MedicationManage';
+import { useFirestoreSync } from './hooks/useFirestoreSync';
 
 export default function App() {
+  useFirestoreSync(); // sync without user constraint
+
   const [activeTab, setActiveTab] = useState('overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [visitedTabs, setVisitedTabs] = useState<Set<string>>(new Set(['overview']));

@@ -7,6 +7,7 @@ interface OverviewStatsProps {
 }
 
 export function OverviewStats({ setActiveTab }: OverviewStatsProps) {
+  // Use zustand store
   const elders = useStore(state => state.elders);
   const alerts = useStore(state => state.alerts);
   const tasks = useStore(state => state.tasks);
@@ -40,7 +41,7 @@ export function OverviewStats({ setActiveTab }: OverviewStatsProps) {
         >
           <CardContent className="p-5 xl:p-6">
             <div className="flex items-center justify-between mb-4">
-              <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${stat.bg}`}>
+               <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${stat.bg}`}>
                 <stat.icon className={`h-6 w-6 ${stat.color}`} strokeWidth={2.5} />
               </div>
               <div className={`px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${

@@ -125,7 +125,7 @@ export function Elder360Drawer() {
            {activeTab === 'health' && <div className="bg-white p-4 rounded-xl shadow-sm"><HealthRecord targetElderId={elderId} setTargetElderId={() => {}} embedded /></div>}
            {activeTab === 'assess' && <div className="bg-white p-4 rounded-xl shadow-sm"><CareAssess embedded elderId={elderId} /></div>}
            {activeTab === 'plan' && <div className="bg-white p-4 rounded-xl shadow-sm"><CarePlan setActiveTab={() => {}} embedded elderId={elderId} /></div>}
-           {activeTab === 'record' && <div className="bg-white p-0 rounded-xl shadow-sm overflow-hidden"><CareRecord embedded elderId={elderId} /></div>}
+           {activeTab === 'record' && <div className="bg-white p-0 rounded-xl shadow-sm overflow-hidden"><CareRecord embedded initialElderId={elderId} /></div>}
            {activeTab === 'devices' && <div className="bg-white p-4 rounded-xl shadow-sm overflow-hidden"><ElderDevices embedded targetElderId={elderId} /></div>}
         </div>
       </div>

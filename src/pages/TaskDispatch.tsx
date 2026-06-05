@@ -12,9 +12,10 @@ import { useState, useMemo } from "react";
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 
 export function TaskDispatch() {
-  const { tasks, staff, updateTaskStaff, autoAssignTasks } = useStore();
+  const { tasks, staff, elders, updateTaskStaff, autoAssignTasks, addTask } = useStore();
 
   const [activeTab, setActiveTab] = useState<'unassigned' | 'all'>('unassigned');
+  const [showOrderModal, setShowOrderModal] = useState(false);
 
   const unassignedTasks = useMemo(() => {
     return tasks.filter(t => t.staff === '未指派' || t.staff === '待指派' || t.staff === '自动排程未指派' || !t.staff || t.status === 'pending');
@@ -60,8 +61,37 @@ export function TaskDispatch() {
     { label: "已完成", value: tasks.filter(t => t.status === 'completed').length.toString(), sub: "达成目标", icon: CheckCircle2, color: "text-indigo-600", bg: "bg-indigo-50" },
   ];
 
+  const handleCreateOrder = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const content = formData.get('content') as string;
+    const type = formData.get('type') as 'medical' | 'care' | 'entertainment' | 'cleaning';
+    const elderId = formData.get('elder') as string;
+    const time = formData.get('time') as string;
+    const assignedStaff = formData.get('staff') as string;
+
+    let elderInfo = '公共区域';
+    if (elderId) {
+      const elder = elders.find(e => e.id === elderId);
+      if (elder) elderInfo = `${elder.name} (${elder.room})`;
+    }
+
+    addTask({
+      id: `T-TMP-${Date.now().toString().slice(-4)}`,
+      name: content,
+      type: type,
+      elder: elderInfo,
+      time: time || new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      staff: assignedStaff || '待指派',
+      status: 'pending'
+    });
+
+    toast.success('临时工单已生成');
+    setShowOrderModal(false);
+  };
+
   return (
-    <div className="animate-in fade-in duration-500 pb-8">
+    <div className="animate-in fade-in duration-500 pb-8 relative">
       <div className="mb-6 flex space-x-2 items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 tracking-tight">任务调度工作台</h2>
@@ -70,7 +100,7 @@ export function TaskDispatch() {
         <div className="flex gap-3">
           <button 
             className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm"
-            onClick={() => toast.info('进入临时下单表单')}
+            onClick={() => setShowOrderModal(true)}
           >
             <PlusCircle className="h-4 w-4" />
             临时下单
@@ -316,9 +346,68 @@ export function TaskDispatch() {
                    <button className="mt-2 text-xs text-blue-600 font-medium hover:underline">联系护理员</button>
                  </div>
               </div>
-           </CardContent>
+          </CardContent>
         </Card>
       </div>
+
+      {showOrderModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col animate-in zoom-in-95">
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/50">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                <PlusCircle className="w-5 h-5 text-blue-600" />
+                发起临时工单
+              </h3>
+              <button onClick={() => setShowOrderModal(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-full">&times;</button>
+            </div>
+            <form onSubmit={handleCreateOrder}>
+              <div className="p-6 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">工单内容 *</label>
+                  <input name="content" required className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="如: 临时血压测量 / 协助更换衣物" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                     <label className="text-sm font-medium text-slate-700">工单类型 *</label>
+                     <select name="type" required className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 bg-white">
+                        <option value="care">生活照料</option>
+                        <option value="medical">医疗护理</option>
+                        <option value="cleaning">卫生保洁</option>
+                        <option value="entertainment">文化娱乐</option>
+                     </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-slate-700">计划时间</label>
+                    <input name="time" type="time" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                   <label className="text-sm font-medium text-slate-700">关联长者 (可选)</label>
+                   <select name="elder" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 bg-white">
+                      <option value="">-- 无特定长者 / 公共区域 --</option>
+                      {elders.map(e => (
+                        <option key={e.id} value={e.id}>{e.name} ({e.room})</option>
+                      ))}
+                   </select>
+                </div>
+                <div className="space-y-1.5">
+                   <label className="text-sm font-medium text-slate-700">指派承办人 (可选)</label>
+                   <select name="staff" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 bg-white">
+                      <option value="">-- 暂不指派 (放入工单大厅) --</option>
+                      {staff.filter(s => s.status !== '休息中').map(s => (
+                        <option key={s.id} value={s.name}>{s.name} ({s.position})</option>
+                      ))}
+                   </select>
+                </div>
+              </div>
+              <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+                <button type="button" onClick={() => setShowOrderModal(false)} className="px-4 py-2 text-sm text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">取消</button>
+                <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">生成并派发工单</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,0 +1,80 @@
+{
+  "entities": {
+    "staff": {
+      "title": "StaffMember",
+      "description": "Staff members for the organization.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "dept": { "type": "string" },
+        "position": { "type": "string" },
+        "phone": { "type": "string" },
+        "status": { "type": "string" },
+        "role": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "elder": {
+      "title": "Elder",
+      "description": "Information about an elder resident.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "room": { "type": "string" },
+        "age": { "type": "number" },
+        "gender": { "type": "string" },
+        "careLevel": { "type": "string" },
+        "healthStatus": { "type": "string" },
+        "admissionDate": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "task": {
+      "title": "Task",
+      "description": "Operational task.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "elder": { "type": "string" },
+        "time": { "type": "string" },
+        "staff": { "type": "string" },
+        "status": { "type": "string" },
+        "type": { "type": "string" }
+      },
+      "required": ["name", "status"]
+    },
+    "careRecord": {
+      "title": "CareRecord",
+      "description": "Record of care given.",
+      "type": "object",
+      "properties": {
+        "time": { "type": "string" },
+        "type": { "type": "string" },
+        "content": { "type": "string" },
+        "result": { "type": "string" },
+        "elderId": { "type": "string" },
+        "elderName": { "type": "string" },
+        "caregiver": { "type": "string" }
+      },
+      "required": ["elderId", "caregiver"]
+    }
+  },
+  "firestore": {
+    "staff": {
+      "schema": { "$ref": "#/entities/staff" },
+      "description": "Collection of staff"
+    },
+    "elders": {
+      "schema": { "$ref": "#/entities/elder" },
+      "description": "Collection of elders"
+    },
+    "tasks": {
+      "schema": { "$ref": "#/entities/task" },
+      "description": "Operational tasks"
+    },
+    "careRecords": {
+      "schema": { "$ref": "#/entities/careRecord" },
+      "description": "Care records"
+    }
+  }
+}

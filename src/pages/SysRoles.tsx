@@ -1,52 +1,112 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader } from "../components/ui/card";
-import { Plus, Edit, Trash2, Search, Shield, Users } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Shield, Users, CheckSquare, Square, ChevronRight, ChevronDown } from "lucide-react";
+import { useStore, SysUser, SysRole } from "../store";
+import { toast } from 'sonner';
+import { menuGroups } from "../config/menus";
 
 export function SysRoles() {
   const [activeTab, setActiveTab] = useState<'users' | 'roles'>('users');
   
-  const [users, setUsers] = useState([
-    { id: 'U1', username: 'admin', name: '系统管理员', roles: ['超级管理员'], status: '正常', lastLogin: '2026-04-28 10:15:33' },
-    { id: 'U2', username: 'zhangmy', name: '张明宇', roles: ['部门主管', '护理员'], status: '正常', lastLogin: '2026-04-28 07:55:12' },
-    { id: 'U3', username: 'wangjg', name: '王建国', roles: ['护理员'], status: '正常', lastLogin: '2026-04-27 19:30:45' },
-    { id: 'U4', username: 'liuxin', name: '刘欣', roles: ['财务专员'], status: '锁定', lastLogin: '2026-04-15 11:20:00' },
-  ]);
-
-  const [roles, setRoles] = useState([
-    { id: 'R1', name: '超级管理员', code: 'admin', desc: '拥有系统所有权限', userCount: 1 },
-    { id: 'R2', name: '部门主管', code: 'dept_manager', desc: '负责部门内人员和排班管理', userCount: 5 },
-    { id: 'R3', name: '护理员', code: 'caregiver', desc: '一线护理人员，处理护理任务', userCount: 42 },
-    { id: 'R4', name: '财务专员', code: 'finance', desc: '处理收费、结算及发票', userCount: 3 },
-  ]);
+  const { sysUsers: users, sysRoles: roles, addSysUser, updateSysUser, removeSysUser, addSysRole, removeSysRole, updateSysRole } = useStore();
 
   const [showUserModal, setShowUserModal] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
+  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
+  const [expandedPermGroups, setExpandedPermGroups] = useState<string[]>([]);
+  
+  const [editingUser, setEditingUser] = useState<SysUser | null>(null);
+  const [editingRole, setEditingRole] = useState<SysRole | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleSaveUser = (e: React.FormEvent<HTMLFormElement>) => {
+  const openUserModal = (user?: SysUser) => {
+    setEditingUser(user || null);
+    setShowUserModal(true);
+  };
+
+  const openRoleModal = (role?: SysRole) => {
+    setEditingRole(role || null);
+    setSelectedPermissions(role?.permissions || []);
+    setExpandedPermGroups(menuGroups.map(g => g.title)); // expand all by default
+    setShowRoleModal(true);
+  };
+
+
+  const handleSaveUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    setUsers([...users, {
-      id: `U${Date.now()}`,
-      username: formData.get('username') as string,
-      name: formData.get('name') as string,
-      roles: ['普通用户'],
-      status: '正常',
-      lastLogin: '-'
-    }]);
-    setShowUserModal(false);
+    const account = formData.get('account') as string;
+    const name = formData.get('name') as string;
+    
+    setLoading(true);
+    try {
+      if (editingUser) {
+        updateSysUser(editingUser.id, { username: account, name });
+        toast.success('此账号修改成功！');
+      } else {
+        const uid = `U${Date.now()}`;
+        addSysUser({
+          id: uid,
+          username: account,
+          name: name,
+          roles: ['普通用户'],
+          status: '正常',
+          lastLogin: '-'
+        });
+        toast.success('此账号已添加成功！');
+      }
+      setShowUserModal(false);
+    } catch (err: any) {
+      console.error(err);
+      toast.error('操作失败: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSaveRole = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    setRoles([...roles, {
-      id: `R${Date.now()}`,
-      name: formData.get('name') as string,
-      code: formData.get('code') as string,
-      desc: formData.get('desc') as string,
-      userCount: 0
-    }]);
+    const name = formData.get('name') as string;
+    const code = formData.get('code') as string;
+    const desc = formData.get('desc') as string;
+
+    if (editingRole) {
+      updateSysRole(editingRole.id, { name, code, desc, permissions: selectedPermissions });
+      toast.success('角色修改成功！');
+    } else {
+      addSysRole({
+        id: `R${Date.now()}`,
+        name,
+        code,
+        desc,
+        userCount: 0,
+        permissions: selectedPermissions
+      });
+      toast.success('角色添加成功！');
+    }
     setShowRoleModal(false);
+  };
+
+  const togglePermission = (id: string) => {
+    setSelectedPermissions(prev => 
+      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
+    );
+  };
+
+  const toggleGroupPermissions = (groupTitle: string, itemIds: string[]) => {
+    const hasAll = itemIds.every(id => selectedPermissions.includes(id));
+    if (hasAll) {
+      setSelectedPermissions(prev => prev.filter(p => !itemIds.includes(p)));
+    } else {
+      setSelectedPermissions(prev => Array.from(new Set([...prev, ...itemIds])));
+    }
+  };
+
+  const togglePermGroupExpand = (title: string) => {
+    setExpandedPermGroups(prev => 
+      prev.includes(title) ? prev.filter(t => t !== title) : [...prev, title]
+    );
   };
 
   return (
@@ -89,7 +149,7 @@ export function SysRoles() {
           </div>
           <button 
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition shadow-sm"
-            onClick={() => activeTab === 'users' ? setShowUserModal(true) : setShowRoleModal(true)}
+            onClick={() => activeTab === 'users' ? openUserModal() : openRoleModal()}
           >
             <Plus className="w-4 h-4" /> {activeTab === 'users' ? '新增账号' : '新增角色'}
           </button>
@@ -129,8 +189,8 @@ export function SysRoles() {
                     <td className="px-6 py-4 font-mono text-slate-500">{u.lastLogin}</td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
-                        <button className="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded transition">编辑</button>
-                        <button onClick={() => setUsers(users.filter(x => x.id !== u.id))} className="text-rose-500 hover:bg-rose-50 px-2 py-1 rounded transition">删除</button>
+                        <button onClick={() => openUserModal(u)} className="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded transition">编辑</button>
+                        <button onClick={() => removeSysUser(u.id)} className="text-rose-500 hover:bg-rose-50 px-2 py-1 rounded transition">删除</button>
                       </div>
                     </td>
                   </tr>
@@ -160,9 +220,8 @@ export function SysRoles() {
                        </span>
                     </td>
                     <td className="px-6 py-4 text-right flex justify-end gap-2">
-                      <button className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition" title="分配权限"><Shield className="w-4 h-4" /></button>
-                      <button className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition"><Edit className="w-4 h-4" /></button>
-                      <button onClick={() => setRoles(roles.filter(x => x.id !== r.id))} className="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={() => openRoleModal(r)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition"><Edit className="w-4 h-4" /></button>
+                      <button onClick={() => removeSysRole(r.id)} className="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition"><Trash2 className="w-4 h-4" /></button>
                     </td>
                   </tr>
                 ))}
@@ -177,23 +236,25 @@ export function SysRoles() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col animate-in zoom-in-95">
             <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/50">
-              <h3 className="font-bold text-slate-800">新增账号</h3>
+              <h3 className="font-bold text-slate-800">{editingUser ? '编辑账号' : '新增账号'}</h3>
               <button onClick={() => setShowUserModal(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-full">&times;</button>
             </div>
-            <form onSubmit={handleSaveUser}>
+             <form onSubmit={handleSaveUser}>
               <div className="p-6 space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">登录账号 *</label>
-                  <input name="username" required className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="如: zhangmy" />
+                  <label className="text-sm font-medium text-slate-700">账号 (手机号等) *</label>
+                  <input name="account" type="text" required defaultValue={editingUser?.username} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="如: 13800138000" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">姓名 *</label>
-                  <input name="name" required className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="真实姓名" />
+                  <label className="text-sm font-medium text-slate-700">系统显示名称 *</label>
+                  <input name="name" required defaultValue={editingUser?.name} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="真实姓名或昵称" />
                 </div>
               </div>
               <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
-                <button type="button" onClick={() => setShowUserModal(false)} className="px-4 py-2 text-sm text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">取消</button>
-                <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">保存账号</button>
+                <button type="button" onClick={() => setShowUserModal(false)} disabled={loading} className="px-4 py-2 text-sm text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50">取消</button>
+                <button type="submit" disabled={loading} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                  {loading ? '保存中...' : '保存'}
+                </button>
               </div>
             </form>
           </div>
@@ -203,29 +264,96 @@ export function SysRoles() {
       {/* Role Modal */}
       {showRoleModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col animate-in zoom-in-95">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col animate-in zoom-in-95">
             <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/50">
-              <h3 className="font-bold text-slate-800">新增角色</h3>
+              <h3 className="font-bold text-slate-800">{editingRole ? '编辑角色' : '新增角色'}</h3>
               <button onClick={() => setShowRoleModal(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-full">&times;</button>
             </div>
-            <form onSubmit={handleSaveRole}>
-              <div className="p-6 space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">角色名称 *</label>
-                  <input name="name" required className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="如: 护理员" />
+            <form onSubmit={handleSaveRole} className="flex flex-col flex-1 overflow-hidden">
+              <div className="flex-1 overflow-y-auto hidden-scrollbar flex">
+                <div className="w-1/3 border-r border-slate-100 p-6 space-y-4 bg-white/50">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-slate-700">角色名称 *</label>
+                    <input name="name" required defaultValue={editingRole?.name} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="如: 护理员" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-slate-700">角色编码 *</label>
+                    <input name="code" required defaultValue={editingRole?.code} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="如: caregiver" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-slate-700">角色描述</label>
+                    <textarea name="desc" defaultValue={editingRole?.desc} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="该角色的主要职能范围说明" rows={3}></textarea>
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">角色编码 *</label>
-                  <input name="code" required className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="如: caregiver" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">角色描述</label>
-                  <textarea name="desc" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="该角色的主要职能范围说明" rows={3}></textarea>
+                <div className="w-2/3 p-6 bg-slate-50/30 overflow-y-auto hidden-scrollbar">
+                  <h4 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-blue-600" />
+                    权限配置
+                  </h4>
+                  <div className="space-y-3">
+                    {menuGroups.map((group, idx) => {
+                      const isExpanded = expandedPermGroups.includes(group.title);
+                      const itemIds = group.items.map(i => i.id);
+                      const hasAll = itemIds.every(id => selectedPermissions.includes(id));
+                      const hasSome = itemIds.some(id => selectedPermissions.includes(id)) && !hasAll;
+
+                      return (
+                        <div key={idx} className="bg-white border text-sm border-slate-200 rounded-lg overflow-hidden flex flex-col transition-shadow hover:shadow-sm">
+                          <div className="flex items-center bg-slate-50 px-4 py-3 select-none border-b border-transparent transition-colors hover:bg-slate-100/50">
+                            <button 
+                              type="button"
+                              className="mr-2 text-slate-400 hover:text-slate-600"
+                              onClick={() => togglePermGroupExpand(group.title)}
+                            >
+                              {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                            </button>
+                            
+                            <button 
+                              type="button"
+                              className="flex items-center gap-2 flex-1 text-left cursor-pointer group"
+                              onClick={() => toggleGroupPermissions(group.title, itemIds)}
+                            >
+                              <div className={`p-0.5 rounded-md transition-colors ${hasAll ? 'text-blue-600 bg-blue-50' : hasSome ? 'text-blue-500 bg-blue-50' : 'text-slate-400 group-hover:text-slate-500 group-hover:bg-slate-200'}`}>
+                                {hasAll ? <CheckSquare className="w-4 h-4" /> : hasSome ? <div className="w-4 h-4 border-2 border-blue-500 rounded-sm flex items-center justify-center"><div className="w-2 h-2 bg-blue-500 rounded-[1px]" /></div> : <Square className="w-4 h-4" />}
+                              </div>
+                              <span className="font-medium text-slate-700 flex items-center gap-2 group-hover:text-slate-900 transition-colors">
+                                 <group.icon className={`w-4 h-4 ${hasAll || hasSome ? 'text-blue-600' : 'text-slate-400'}`} />
+                                 {group.title}
+                              </span>
+                            </button>
+                          </div>
+
+                          {isExpanded && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-4 p-4 border-t border-slate-100 bg-white">
+                              {group.items.map(item => {
+                                const isChecked = selectedPermissions.includes(item.id);
+                                return (
+                                  <button
+                                    type="button"
+                                    key={item.id}
+                                    className="flex items-center gap-2 text-left hover:bg-slate-50 px-2 py-1.5 rounded transition-colors group cursor-pointer"
+                                    onClick={() => togglePermission(item.id)}
+                                  >
+                                    <div className={`transition-colors ${isChecked ? 'text-blue-600' : 'text-slate-300 group-hover:text-slate-400'}`}>
+                                      {isChecked ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+                                    </div>
+                                    <span className={`transition-colors ${isChecked ? 'text-slate-800 font-medium' : 'text-slate-600 group-hover:text-slate-800'}`}>
+                                      {item.label}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
-              <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+              <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 shrink-0">
                 <button type="button" onClick={() => setShowRoleModal(false)} className="px-4 py-2 text-sm text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">取消</button>
-                <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">保存角色</button>
+                <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">保存角色及权限</button>
               </div>
             </form>
           </div>
