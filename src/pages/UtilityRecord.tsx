@@ -14,11 +14,74 @@ import {
   ArrowRight,
   Download,
   Eye,
+  X
 } from "lucide-react";
 import { toast } from "sonner";
 
 export function UtilityRecord() {
   const [activeMonth, setActiveMonth] = useState("2023-10");
+  const [showBatchModal, setShowBatchModal] = useState(false);
+  const [showSingleModal, setShowSingleModal] = useState(false);
+  const [singleContext, setSingleContext] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const [records, setRecords] = useState([
+    {
+      bed: "A栋-101",
+      waterRead: "1,250.5",
+      elecRead: "8,420.0",
+      waterDiff: "12.5",
+      elecDiff: "150.0",
+      fee: "262.50",
+      status: "已录入"
+    },
+    {
+      bed: "A栋-102",
+      waterRead: "-",
+      elecRead: "-",
+      waterDiff: "-",
+      elecDiff: "-",
+      fee: "-",
+      status: "待录入"
+    },
+    {
+       bed: "B栋-205",
+       waterRead: "1,400.0",
+       elecRead: "9,000.5",
+       waterDiff: "10.0",
+       elecDiff: "200.0",
+       fee: "310.00",
+       status: "已录入"
+    }
+  ]);
+
+  const filteredRecords = records.filter(r => r.bed.includes(searchQuery));
+
+  const handleBatchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    toast.success("批量抄表数据导入成功");
+    setShowBatchModal(false);
+  };
+
+  const handleSingleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const water = formData.get("water") as string;
+    const elec = formData.get("elec") as string;
+    
+    setRecords(records.map(r => r.bed === singleContext ? {
+       ...r,
+       waterRead: water,
+       elecRead: elec,
+       waterDiff: "12.0",
+       elecDiff: "100.0",
+       fee: "200.00",
+       status: "已录入"
+    } : r));
+
+    toast.success(`${singleContext} 抄表数据录入成功`);
+    setShowSingleModal(false);
+  };
 
   return (
     <div className="animate-in fade-in duration-500 pb-8">
@@ -33,7 +96,7 @@ export function UtilityRecord() {
         </div>
         <div className="flex gap-3">
           <button
-            onClick={() => toast.info("批量导入抄表数据功能开发中")}
+            onClick={() => setShowBatchModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 border border-indigo-700 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm"
           >
             <Plus className="h-4 w-4" />
@@ -118,6 +181,8 @@ export function UtilityRecord() {
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="搜索房号..."
                   className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm w-48 focus:outline-none focus:border-indigo-500 bg-white"
                 />
@@ -149,54 +214,123 @@ export function UtilityRecord() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              <tr className="hover:bg-slate-50/50 transition-colors">
-                <td className="px-6 py-4 font-bold text-slate-800">A栋-101</td>
-                <td className="px-6 py-4 text-slate-600 font-mono">1,250.5</td>
-                <td className="px-6 py-4 text-slate-600 font-mono">8,420.0</td>
-                <td className="px-6 py-4 text-emerald-600 font-medium">12.5</td>
-                <td className="px-6 py-4 text-amber-600 font-medium">150.0</td>
-                <td className="px-6 py-4 font-bold inline-flex items-baseline gap-1">
-                  <span className="text-xs text-slate-400">¥</span> 262.50
-                </td>
-                <td className="px-6 py-4">
-                  <span className="text-emerald-600 bg-emerald-50 px-2 py-1 rounded-sm text-xs font-medium">
-                    已录入
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <button
-                    onClick={() => toast.info("查看抄表详情")}
-                    className="text-indigo-600 hover:text-indigo-800 p-1 rounded hover:bg-indigo-50"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </button>
-                </td>
-              </tr>
-              <tr className="hover:bg-slate-50/50 transition-colors">
-                <td className="px-6 py-4 font-bold text-slate-800">A栋-102</td>
-                <td className="px-6 py-4 text-slate-600 font-mono">-</td>
-                <td className="px-6 py-4 text-slate-600 font-mono">-</td>
-                <td className="px-6 py-4 text-slate-400">-</td>
-                <td className="px-6 py-4 text-slate-400">-</td>
-                <td className="px-6 py-4 text-slate-400">-</td>
-                <td className="px-6 py-4">
-                  <span className="text-amber-600 bg-amber-50 px-2 py-1 rounded-sm text-xs font-medium">
-                    待录入
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <button
-                    onClick={() => toast.info("单间录入功能开发中")}
-                    className="text-indigo-600 font-medium text-xs px-2 py-1 border border-indigo-200 rounded hover:bg-indigo-50"
-                  >
-                    录入
-                  </button>
-                </td>
-              </tr>
+              {filteredRecords.map(r => (
+                <tr key={r.bed} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-6 py-4 font-bold text-slate-800">{r.bed}</td>
+                  <td className={`px-6 py-4 font-mono ${r.waterRead === '-' ? 'text-slate-400' : 'text-slate-600'}`}>{r.waterRead}</td>
+                  <td className={`px-6 py-4 font-mono ${r.elecRead === '-' ? 'text-slate-400' : 'text-slate-600'}`}>{r.elecRead}</td>
+                  <td className={`px-6 py-4 font-medium ${r.waterDiff === '-' ? 'text-slate-400' : 'text-emerald-600'}`}>{r.waterDiff}</td>
+                  <td className={`px-6 py-4 font-medium ${r.elecDiff === '-' ? 'text-slate-400' : 'text-amber-600'}`}>{r.elecDiff}</td>
+                  <td className={`px-6 py-4 ${r.fee === '-' ? 'text-slate-400' : 'font-bold inline-flex items-baseline gap-1'}`}>
+                    {r.fee !== '-' && <span className="text-xs text-slate-400">¥</span>} {r.fee}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2 py-1 rounded-sm text-xs font-medium ${r.status === '已录入' ? 'text-emerald-600 bg-emerald-50' : 'text-amber-600 bg-amber-50'}`}>
+                      {r.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    {r.status === '已录入' ? (
+                      <button
+                        onClick={() => toast.info("查看抄表详情")}
+                        className="text-indigo-600 hover:text-indigo-800 p-1 rounded hover:bg-indigo-50"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setSingleContext(r.bed);
+                          setShowSingleModal(true);
+                        }}
+                        className="text-indigo-600 font-medium text-xs px-2 py-1 border border-indigo-200 rounded hover:bg-indigo-50"
+                      >
+                        录入
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {filteredRecords.length === 0 && (
+                <tr>
+                   <td colSpan={8} className="px-6 py-12 text-center text-slate-400">没有找到符合条件的房间</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </CardContent>
       </Card>
+
+      {/* Batch Import Modal */}
+      {showBatchModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col animate-in zoom-in-95">
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50">
+              <h3 className="font-bold text-slate-800">批量抄表数据导入</h3>
+              <button onClick={() => setShowBatchModal(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-full"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleBatchSubmit}>
+              <div className="p-6 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">选择账期</label>
+                  <select className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 bg-white">
+                    <option>2023年 11月</option>
+                    <option>2023年 10月</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5 p-4 border-2 border-dashed border-slate-200 rounded-lg hover:border-indigo-400 transition-colors text-center cursor-pointer bg-slate-50">
+                  <p className="text-sm text-indigo-600 font-medium">点击此处上传 Excel 文件</p>
+                  <p className="text-xs text-slate-500 mt-1">支持 .xlsx 或 .csv 格式</p>
+                </div>
+                <div className="pt-2 text-xs text-slate-500">
+                  导入说明：请下载标准模板据实填写。一次最多允许导入 500 条记录。
+                </div>
+              </div>
+              <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+                <button type="button" onClick={() => setShowBatchModal(false)} className="px-4 py-2 text-sm text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">取消</button>
+                <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">确认导入</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Single Entry Modal */}
+      {showSingleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col animate-in zoom-in-95">
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50">
+              <h3 className="font-bold text-slate-800">单间抄表录入</h3>
+              <button onClick={() => setShowSingleModal(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-full"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleSingleSubmit}>
+              <div className="p-6 space-y-4">
+                <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-indigo-800 text-sm mb-2 font-medium">
+                  正在为 <strong>{singleContext}</strong> 录入读数
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">水表止码 (吨)</label>
+                  <input name="water" required type="number" step="0.1" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500" placeholder="如: 1250.5" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">电表止码 (度)</label>
+                  <input name="elec" required type="number" step="0.1" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500" placeholder="如: 8420.0" />
+                </div>
+                <div className="space-y-1.5">
+                   <label className="flex items-center gap-2 mt-2">
+                     <input type="checkbox" defaultChecked className="rounded text-indigo-600 focus:ring-indigo-500" />
+                     <span className="text-sm text-slate-600">录入后自动计算本月费用</span>
+                   </label>
+                </div>
+              </div>
+              <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+                <button type="button" onClick={() => setShowSingleModal(false)} className="px-4 py-2 text-sm text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">取消</button>
+                <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">保存记录</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

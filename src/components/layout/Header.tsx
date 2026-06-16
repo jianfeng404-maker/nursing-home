@@ -3,7 +3,6 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { FamilyAppPreview } from "../FamilyAppPreview";
 import { CareworkerAppPreview } from "../CareworkerAppPreview";
-import { useFirebase } from "../../hooks/useFirebase";
 import { useStore } from "../../store";
 
 export function Header({ onMenuClick }: { onMenuClick: () => void }) {
@@ -17,7 +16,8 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const initial = '管';
 
   const handleLogout = async () => {
-    toast.info('试用模式下无法退出该测试账户');
+    localStorage.removeItem('token');
+    window.location.reload();
   };
 
   const notifications = [

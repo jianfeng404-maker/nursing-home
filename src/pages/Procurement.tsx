@@ -7,11 +7,15 @@ import {
   CheckCircle2,
   Clock,
   Send,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
 export function Procurement() {
   const [activeTab, setActiveTab] = useState("orders");
+  const [showOrderModal, setShowOrderModal] = useState(false);
+  const [showReqModal, setShowReqModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [purchaseOrders, setPurchaseOrders] = useState([
     {
@@ -73,6 +77,48 @@ export function Procurement() {
     },
   ]);
 
+  const handleCreateOrder = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const newOrder = {
+      id: `PO-${new Date().toISOString().replace(/\D/g,'').slice(0,8)}-${Math.floor(Math.random() * 900 + 100)}`,
+      date: new Date().toISOString().split('T')[0],
+      supplier: formData.get("supplier") as string,
+      totalAmount: formData.get("amount") as string,
+      status: "待收货",
+      creator: "当前用户",
+      items: Number(formData.get("items")),
+    };
+    setPurchaseOrders([newOrder, ...purchaseOrders]);
+    toast.success("新建采购单成功");
+    setShowOrderModal(false);
+  };
+
+  const handleCreateReq = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const newReq = {
+      id: `REQ-${new Date().toISOString().replace(/\D/g,'').slice(0,8)}-${Math.floor(Math.random() * 900 + 100)}`,
+      date: new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-'),
+      department: formData.get("department") as string,
+      applicant: "当前用户",
+      reason: formData.get("reason") as string,
+      status: "待审批",
+      items: Number(formData.get("items")),
+    };
+    setRequisitions([newReq, ...requisitions]);
+    toast.success("发起领用申请成功");
+    setShowReqModal(false);
+  };
+
+  const filteredOrders = purchaseOrders.filter(
+    (po) => po.id.includes(searchQuery) || po.supplier.includes(searchQuery)
+  );
+
+  const filteredRequisitions = requisitions.filter(
+    (req) => req.id.includes(searchQuery) || req.department.includes(searchQuery)
+  );
+
   return (
     <div className="animate-in fade-in duration-500 pb-8 h-full flex flex-col">
       <div className="flex justify-between items-end mb-6 shrink-0">
@@ -87,14 +133,14 @@ export function Procurement() {
         <div className="flex gap-3">
           {activeTab === "orders" ? (
             <button
-              onClick={() => toast.info("新建采购单功能开发中")}
+              onClick={() => setShowOrderModal(true)}
               className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-md text-sm font-medium hover:bg-emerald-700 transition shadow-sm"
             >
               <Plus className="w-4 h-4" /> 新建采购单
             </button>
           ) : (
             <button
-              onClick={() => toast.info("发起领用申请功能开发中")}
+              onClick={() => setShowReqModal(true)}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition shadow-sm"
             >
               <Send className="w-4 h-4" /> 发起领用申请
@@ -126,6 +172,8 @@ export function Procurement() {
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="搜索单号或供应商..."
                 className="pl-9 pr-4 py-1.5 border border-slate-300 rounded-lg text-sm w-64 focus:outline-none focus:border-indigo-500 bg-slate-50 hover:bg-white transition-colors"
               />
@@ -148,7 +196,7 @@ export function Procurement() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                {purchaseOrders.map((po) => (
+                {filteredOrders.map((po) => (
                   <tr key={po.id} className="hover:bg-slate-50/50 transition">
                     <td className="px-6 py-4 font-mono text-slate-500">
                       {po.id}
@@ -196,7 +244,7 @@ export function Procurement() {
                         </button>
                       ) : (
                         <button
-                          onClick={() => toast.info("查看单据详情")}
+                          onClick={() => toast.info(`正在查看单据详情：${po.id}`)}
                           className="text-slate-500 hover:text-slate-700 font-medium text-sm flex items-center justify-center gap-1 mx-auto"
                         >
                           <FileText className="w-4 h-4" /> 查看单据
@@ -222,7 +270,7 @@ export function Procurement() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                {requisitions.map((req) => (
+                {filteredRequisitions.map((req) => (
                   <tr key={req.id} className="hover:bg-slate-50/50 transition">
                     <td className="px-6 py-4 font-mono text-slate-500">
                       {req.id}
@@ -283,7 +331,7 @@ export function Procurement() {
                         </button>
                       )}
                       <button
-                        onClick={() => toast.info("查看明细")}
+                        onClick={() => toast.info(`正在查看申请明细：${req.id}`)}
                         className="p-1.5 text-slate-500 hover:bg-slate-100 rounded transition"
                         title="查看明细"
                       >
@@ -297,6 +345,77 @@ export function Procurement() {
           )}
         </CardContent>
       </Card>
+
+      {/* New Purchase Order Modal */}
+      {showOrderModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+             <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/50">
+                <h3 className="font-bold text-slate-800 text-lg">新建采购单</h3>
+                <button type="button" onClick={() => setShowOrderModal(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-full"><X className="w-5 h-5" /></button>
+             </div>
+             <form onSubmit={handleCreateOrder}>
+               <div className="p-6 space-y-4">
+                  <div className="space-y-1.5">
+                     <label className="text-sm font-medium text-slate-700">供应商 *</label>
+                     <input name="supplier" required className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="如：稳健医疗" />
+                  </div>
+                  <div className="space-y-1.5">
+                     <label className="text-sm font-medium text-slate-700">物资种类数量 *</label>
+                     <input name="items" type="number" min="1" required className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="如：5" />
+                  </div>
+                  <div className="space-y-1.5">
+                     <label className="text-sm font-medium text-slate-700">预估总金额 (¥) *</label>
+                     <input name="amount" required className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="如：1200.00" />
+                  </div>
+               </div>
+               <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+                  <button type="button" onClick={() => setShowOrderModal(false)} className="px-4 py-2 border border-slate-300 bg-white text-slate-700 rounded-md text-sm font-medium hover:bg-slate-50 transition">取消</button>
+                  <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded-md text-sm font-medium hover:bg-emerald-700 transition shadow-sm">提交并生成入库单</button>
+               </div>
+             </form>
+          </div>
+        </div>
+      )}
+
+      {/* New Requisition Modal */}
+      {showReqModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+             <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/50">
+                <h3 className="font-bold text-slate-800 text-lg">发起领用申请</h3>
+                <button type="button" onClick={() => setShowReqModal(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-full"><X className="w-5 h-5" /></button>
+             </div>
+             <form onSubmit={handleCreateReq}>
+               <div className="p-6 space-y-4">
+                  <div className="space-y-1.5">
+                     <label className="text-sm font-medium text-slate-700">领用部门 *</label>
+                     <select name="department" className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-500 bg-white">
+                        <option value="护理A区">护理A区</option>
+                        <option value="护理B区">护理B区</option>
+                        <option value="餐饮部">餐饮部</option>
+                        <option value="保洁部">保洁部</option>
+                        <option value="行政部">行政部</option>
+                     </select>
+                  </div>
+                  <div className="space-y-1.5">
+                     <label className="text-sm font-medium text-slate-700">物资种类数量 *</label>
+                     <input name="items" type="number" min="1" required className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="如：3" />
+                  </div>
+                  <div className="space-y-1.5">
+                     <label className="text-sm font-medium text-slate-700">领用原因 *</label>
+                     <textarea name="reason" rows={3} required className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="简单说明领用的目的" />
+                  </div>
+               </div>
+               <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+                  <button type="button" onClick={() => setShowReqModal(false)} className="px-4 py-2 border border-slate-300 bg-white text-slate-700 rounded-md text-sm font-medium hover:bg-slate-50 transition">取消</button>
+                  <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition shadow-sm">提交申请</button>
+               </div>
+             </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

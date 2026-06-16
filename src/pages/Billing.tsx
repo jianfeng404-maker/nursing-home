@@ -2,53 +2,27 @@ import { useState } from "react";
 import { Card, CardContent } from "../components/ui/card";
 import { Search, FileSpreadsheet, X, Info, Calculator, CheckCircle2, AlertCircle, FileText, Send } from "lucide-react";
 import { ElderLink } from "../components/ElderLink";
+import { useStore, BillRecordType } from "../store";
+import { toast } from "sonner";
 
 export function Billing() {
   const [activeTab, setActiveTab] = useState('pending');
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedBill, setSelectedBill] = useState<any>(null);
+  const [selectedBill, setSelectedBill] = useState<BillRecordType | null>(null);
 
-  const [draftBills, setDraftBills] = useState([
-    { 
-      id: "B-202604-001", elder: "张明宇", room: "A栋-101", period: "2026年04月",
-      totalAmount: "8,500.00", status: "待核对",
-      items: [
-        { category: "固定费用", name: "床位费", amount: "4,000.00" },
-        { category: "固定费用", name: "二级护理费", amount: "3,000.00" },
-        { category: "增值费用", name: "就医陪同服务", amount: "200.00" },
-        { category: "餐饮费用", name: "月度餐饮费", amount: "1,500.00" },
-      ],
-      deductions: [
-        { name: "长护险补贴扣除", amount: "-200.00" }
-      ]
-    },
-    { 
-      id: "B-202604-002", elder: "李秀兰", room: "A栋-102", period: "2026年04月",
-      totalAmount: "6,200.00", status: "待核对",
-      items: [
-        { category: "固定费用", name: "床位费", amount: "3,500.00" },
-        { category: "固定费用", name: "三级护理费", amount: "2,000.00" },
-        { category: "商品代购", name: "成人纸尿裤", amount: "700.00" },
-      ],
-      deductions: []
-    },
-  ]);
+  const bills = useStore(state => state.bills);
+  const updateBillStatus = useStore(state => state.updateBillStatus);
 
-  const [issuedBills, setIssuedBills] = useState([
-    { id: "B-202603-055", elder: "王建国", room: "B栋-201", period: "2026年03月", totalAmount: "15,800.00", status: "已核发 (待缴款)", items: [], deductions: [] },
-    { id: "B-202603-056", elder: "赵桂芳", room: "C栋-302", period: "2026年03月", totalAmount: "7,000.00", status: "已结清", items: [], deductions: [] },
-  ]);
+  const draftBills = bills.filter(b => b.status === "待核对");
+  const issuedBills = bills.filter(b => b.status !== "待核对");
 
   const currentList = activeTab === 'pending' ? draftBills : issuedBills;
   const filteredList = currentList.filter(b => 
-    b.elder.includes(searchQuery) || b.room.includes(searchQuery) || b.id.includes(searchQuery)
+    b.elder.includes(searchQuery) || (b.room && b.room.includes(searchQuery)) || b.id.includes(searchQuery)
   );
 
   const handleVerify = (id: string) => {
-    const billToApprove = draftBills.find(b => b.id === id);
-    if (!billToApprove) return;
-    setDraftBills(draftBills.filter(b => b.id !== id));
-    setIssuedBills([{...billToApprove, status: "已核发 (待缴款)"}, ...issuedBills]);
+    updateBillStatus(id, "已核发 (待缴款)");
     setSelectedBill(null);
   };
 
@@ -140,7 +114,7 @@ export function Billing() {
                            <div className="text-xs text-slate-500">{bill.room}</div>
                         </td>
                         <td className="px-6 py-4 font-medium text-slate-600">{bill.period}</td>
-                        <td className="px-6 py-4 text-right font-black text-slate-900 text-lg">¥ {bill.totalAmount}</td>
+                        <td className="px-6 py-4 text-right font-black text-slate-900 text-lg">¥ {bill.total}</td>
                         <td className="px-6 py-4">
                            <span className={`px-2.5 py-1 rounded-md text-xs font-bold w-max ${
                              bill.status === '待核对' ? 'bg-amber-100 text-amber-800' :
@@ -208,7 +182,7 @@ export function Billing() {
                          </div>
                          <div className="text-right">
                             <div className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-1">本期应缴总额</div>
-                            <div className="text-3xl font-black text-indigo-700 font-mono">¥ {selectedBill.totalAmount}</div>
+                            <div className="text-3xl font-black text-indigo-700 font-mono">¥ {selectedBill.total}</div>
                          </div>
                       </div>
 
@@ -273,7 +247,25 @@ export function Billing() {
                             <button className="w-full py-2.5 bg-white border border-slate-300 text-slate-700 text-sm font-bold rounded-lg shadow-sm hover:bg-slate-50 transition-colors">
                                修改明细项 (调整金额)
                             </button>
-                            <button className="w-full py-2.5 bg-white border border-slate-300 text-slate-700 text-sm font-bold rounded-lg shadow-sm hover:bg-slate-50 transition-colors">
+                            <button 
+                              onClick={() => {
+                                 const name = window.prompt("请输入临时扣费项目名称 (例如: 临时陪护费用)");
+                                 if (!name) return;
+                                 const amount = window.prompt("请输入金额 (例如: 150)");
+                                 if (!amount) return;
+                                 
+                                 const newBill = { ...selectedBill };
+                                 newBill.tempItems = [...(newBill.tempItems || []), { name, amount: amount + ".00", date: new Date().toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }).replace('/', '-') }];
+                                 
+                                 // Update total
+                                 const total = parseFloat(newBill.total.toString().replace(/,/g, ''));
+                                 newBill.total = (total + parseFloat(amount)).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                                 
+                                 useStore.getState().bills = useStore.getState().bills.map(b => b.id === newBill.id ? newBill : b);
+                                 setSelectedBill(newBill);
+                                 toast.success(`已添加临时扣费项: ${name}`);
+                              }}
+                              className="w-full py-2.5 bg-white border border-slate-300 text-slate-700 text-sm font-bold rounded-lg shadow-sm hover:bg-slate-50 transition-colors">
                                新增临时扣费项
                             </button>
                             <div className="my-4 border-t border-slate-100"></div>

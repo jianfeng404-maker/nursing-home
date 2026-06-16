@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader } from "../components/ui/card";
 import { Search, Filter, AlertTriangle, ShieldCheck, Cctv, BellRing, X, PhoneCall, ShieldAlert, CheckCircle2 } from "lucide-react";
 import { useStore } from "../store";
+import { toast } from "sonner";
 
 export function SafetyMonitor() {
   const [activeTab, setActiveTab] = useState('all');
@@ -10,6 +11,7 @@ export function SafetyMonitor() {
 
   const storeAlerts = useStore(state => state.alerts);
   const resolveStoreAlert = useStore(state => state.resolveAlert);
+  const addTask = useStore(state => state.addTask);
 
   const getLevelZh = (level: string) => {
     switch(level) {
@@ -50,7 +52,7 @@ export function SafetyMonitor() {
     <div className="animate-in fade-in duration-500 pb-8">
       <div className="flex justify-between items-end mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800 tracking-tight">告警与调度监控台</h2>
+          <h2 className="text-2xl font-bold text-slate-800 tracking-tight">告警与调度中心</h2>
           <p className="text-slate-500 text-sm mt-1">全局监控各类智能硬件触发的安全告警信息并进行工单调度</p>
         </div>
       </div>
@@ -206,7 +208,28 @@ export function SafetyMonitor() {
                 <div>
                   <h4 className="text-sm font-medium text-slate-500 mb-3">调度动作 (Dispatch Actions)</h4>
                   <div className="grid grid-cols-2 gap-3">
-                     <button className="flex flex-col items-center justify-center gap-2 p-4 border border-blue-200 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors text-blue-700 text-sm font-bold">
+                     <button 
+                       onClick={() => {
+                         const match = selectedAlert.detail?.match(/关联长者: (.*?)$/);
+                         const elderName = match ? match[1] : '未知';
+                         const roomMatch = selectedAlert.location;
+                         
+                         addTask({
+                           id: `TSK-IOT-${new Date().toISOString().replace(/\D/g, '').slice(0, 8)}-${Math.floor(Math.random() * 90 + 10)}`,
+                           time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+                           type: 'care',
+                           name: `[告警调度] ${selectedAlert.type}处理`,
+                           status: 'pending',
+                           elder: `${elderName} (${roomMatch})`,
+                           fee: 0,
+                           staff: '未指派'
+                         } as any);
+                         
+                         resolveStoreAlert(selectedAlert.id, '已派发工单并推送至护理端', '中台调度员');
+                         toast.success('已联动生成护理调度工单，并推送至护工端！');
+                         setShowModal(false);
+                       }}
+                       className="flex flex-col items-center justify-center gap-2 p-4 border border-blue-200 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors text-blue-700 text-sm font-bold">
                         <ShieldAlert className="w-6 h-6" />
                         派单给就近护理员
                      </button>

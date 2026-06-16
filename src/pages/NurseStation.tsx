@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Activity, Bell, Clock, AlertTriangle, ShieldAlert, HeartPulse, BedDouble, CheckCircle2, User, Phone, MapPin, Volume2, Monitor, Users, X, Siren, Sparkles, Loader2, Calendar, Maximize, Minimize } from "lucide-react";
+import { Activity, Bell, Clock, AlertTriangle, ShieldAlert, HeartPulse, BedDouble, CheckCircle2, User, Phone, MapPin, Volume2, Monitor, Users, X, Siren, Sparkles, Loader2, Calendar, Maximize, Minimize, ChevronDown } from "lucide-react";
 import { useStore } from "../store";
 import { ElderLink } from "../components/ElderLink";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { analyzeVitalSignsAnomaly } from "../services/aiService";
 import { toast } from "sonner";
 
-export function NurseStation({ setActiveTab }: { setActiveTab?: (tab: string) => void }) {
+export function NurseStation({ setActiveTab, stationId }: { setActiveTab?: (tab: string) => void, stationId?: string }) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [selectedBedId, setSelectedBedId] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -17,7 +17,16 @@ export function NurseStation({ setActiveTab }: { setActiveTab?: (tab: string) =>
   const [anomalyAnalysis, setAnomalyAnalysis] = useState('');
   const [vitalsData, setVitalsData] = useState<Record<string, any>>({});
 
-  const { elders, beds, tasks: globalTasks, addCareRecord, updateTaskStatus, careRecords, staff } = useStore();
+  const { elders, beds, tasks: globalTasks, addCareRecord, updateTaskStatus, careRecords, staff, addBill, nursingStations } = useStore();
+  const [currentStationId, setCurrentStationId] = useState(stationId || nursingStations[0]?.id || "");
+  
+  useEffect(() => {
+    if (stationId) {
+      setCurrentStationId(stationId);
+    }
+  }, [stationId]);
+
+  const currentStation = nursingStations.find(s => s.id === currentStationId) || nursingStations[0] || { id: 'temp', name: "全局总览", buildings: [], floors: [], manager: "", assignedStaff: [] };
 
   useEffect(() => {
     // Initial mock vitals for each occupied bed
@@ -89,7 +98,14 @@ export function NurseStation({ setActiveTab }: { setActiveTab?: (tab: string) =>
       bed: a.location,
       elder: a.resident,
       desc: a.title,
-    }));
+    })).filter(a => {
+       if (currentStation.buildings.length === 0) return true;
+       const bedObj = beds.find(b => b.id === a.bed);
+       if (bedObj) {
+         return currentStation.buildings.includes(bedObj.building);
+       }
+       return currentStation.buildings.some(b => a.bed.includes(b));
+    });
 
   const [handlingAlert, setHandlingAlert] = useState<any>(null);
   const [handleNotes, setHandleNotes] = useState('');
@@ -98,6 +114,7 @@ export function NurseStation({ setActiveTab }: { setActiveTab?: (tab: string) =>
   const [taskNotes, setTaskNotes] = useState('');
 
   const [showShiftReport, setShowShiftReport] = useState(false);
+  const [showSchedule, setShowSchedule] = useState(false);
   const [isAddingRecord, setIsAddingRecord] = useState(false);
   const [addingFromElder, setAddingFromElder] = useState<any>(null);
   const [newRecordContent, setNewRecordContent] = useState('');
@@ -134,14 +151,33 @@ export function NurseStation({ setActiveTab }: { setActiveTab?: (tab: string) =>
     task: t.name,
     type: t.type,
     elderRaw: t.elder,
-    bed: t.elder.includes('(') ? t.elder.split('(')[1].replace(')', '') : 'N/A',
-    elder: t.elder.split(' ')[0],
+    bed: t.elder && t.elder.includes('(') ? t.elder.split('(')[1].replace(')', '') : 'N/A',
+    elder: t.elder ? t.elder.split(' ')[0] : '未知',
     assigned: t.staff,
     status: t.status,
-  }));
+  })).filter(t => {
+     if (currentStation.buildings.length > 0 && !currentStation.buildings.some(b => t.bed.includes(b))) return false;
+     return true;
+  });
 
   // Map beds to their current elders
-  const floorBeds = beds.filter(b => b.building === 'A栋');
+  const floorBeds = beds.filter(b => {
+     if (currentStation.buildings.length > 0 && !currentStation.buildings.includes(b.building)) return false;
+     if (currentStation.floors.length > 0 && !currentStation.floors.includes(b.floor)) return false;
+     return true;
+  });
+
+  const { schedules, saveSchedule } = useStore();
+  const currentWeek = "2026-04-27"; // Mocking current week start date based on initial data structure
+  const currentSchedule = schedules.find(s => s.stationId === currentStationId && s.weekStart === currentWeek) || {
+     id: `tmp-${currentStationId}`,
+     stationId: currentStationId,
+     weekStart: currentWeek,
+     shifts: currentStation.assignedStaff?.map(id => {
+        const s = staff.find(st => st.id === id);
+        return { staffId: id, staffName: s?.name || "", isBorrowed: false, days: ["白班", "白班", "夜班", "休息", "休息", "白班", "白班"] };
+     }) || []
+  };
 
   const getAlertIcon = (type: string, sizeClass = "w-6 h-6") => {
     switch(type) {
@@ -155,17 +191,22 @@ export function NurseStation({ setActiveTab }: { setActiveTab?: (tab: string) =>
   return (
     <div className={`text-slate-700 flex flex-col overflow-y-auto ${isFullscreen ? "fixed inset-0 z-50 bg-[#F4F7FA] p-6 pb-20" : "h-full -mx-4 sm:-mx-6 md:-mx-8 -my-4 sm:-my-6 md:-my-8 bg-[#F4F7FA] p-4 sm:p-6 pb-20"}`}>
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-200 pb-4 mb-6 shrink-0 bg-white p-4 rounded-2xl shadow-sm">
+      <div className="flex items-center justify-between border-b border-slate-200 pb-4 mb-6 shrink-0 bg-white p-4 rounded-2xl shadow-sm relative">
         <div className="flex items-center gap-4">
           <div className="bg-blue-50 p-3 rounded-xl border border-blue-100">
             <Monitor className="w-8 h-8 text-blue-600" />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-slate-800 tracking-wider">A栋 护理与体征综合监控大屏</h1>
+            <div className="relative">
+              <h1 className="text-2xl font-black text-slate-800 tracking-wider flex items-center gap-2">
+                {currentStation.name}
+              </h1>
+            </div>
+            
             <div className="flex items-center gap-4 text-sm text-slate-500 mt-1">
-              <span className="flex items-center gap-1"><User className="w-4 h-4" /> 责任护士: 李雪、张峰</span>
-              <span className="flex items-center gap-1"><BedDouble className="w-4 h-4" /> 开放床位: {floorBeds.length}</span>
-              <span className="flex items-center gap-1"><Users className="w-4 h-4" /> 在院: {floorBeds.filter(b => b.status === 'occupied').length}</span>
+              <span className="flex items-center gap-1"><User className="w-4 h-4" /> 责任护士: {staff.find(s => s.id === currentStation.manager)?.name || '未指定'}</span>
+              <span className="flex items-center gap-1"><BedDouble className="w-4 h-4" /> 管辖区域: {currentStation.buildings.join(', ')} {currentStation.floors.join(', ')}</span>
+              <span className="flex items-center gap-1"><Users className="w-4 h-4" /> 在院记录: {floorBeds.filter(b => b.status === 'occupied').length} / {floorBeds.length}</span>
             </div>
           </div>
         </div>
@@ -208,19 +249,37 @@ export function NurseStation({ setActiveTab }: { setActiveTab?: (tab: string) =>
              <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-slate-800 flex items-center gap-2">
                    <Users className="w-4 h-4 text-indigo-500" />
-                   当班护理小组
+                   护理站人员
                 </h3>
-                <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">A栋 · 早班</span>
+                <button 
+                  onClick={() => setShowSchedule(true)}
+                  className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100 hover:bg-indigo-100 transition-colors cursor-pointer"
+                >
+                  排班管理
+                </button>
              </div>
-             <div className="flex items-center gap-4">
-                <div className="flex -space-x-3">
-                   {staff.filter(s => s.id === 'EMP-002' || s.id === 'EMP-001').map((s, idx) => (
-                     <img key={s.id} src={s.avatar} alt={s.name} className={`w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover relative z-${10 - idx}0`} />
-                   ))}
+             <div className="flex flex-col gap-3">
+                <div className="text-xs text-slate-500 mb-1 border-b border-slate-100 pb-2 flex items-center justify-between">
+                   <span>本站护理组长：<span className="font-bold text-slate-700">{staff.find(s => s.id === currentStation.manager)?.name || '未指派'}</span></span>
+                   <span className="text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">{currentStation.buildings.join(',')}</span>
                 </div>
-                <div>
-                   <div className="text-sm font-bold text-slate-800">{staff.find(s=>s.id==='EMP-002')?.name} (组长), {staff.find(s=>s.id==='EMP-001')?.name}</div>
-                   <div className="text-xs text-slate-500 mt-0.5">负责当前楼层任务及呼叫响应</div>
+                <div className="flex flex-wrap gap-2">
+                   {currentSchedule.shifts.map(shift => {
+                      const s = staff.find(st => st.id === shift.staffId);
+                      if (!s) return null;
+                      const todayShift = shift.days[currentTime.getDay() === 0 ? 6 : currentTime.getDay() - 1] || "休息";
+                      const isWorking = todayShift.includes("班");
+                      
+                      return (
+                        <div key={shift.staffId} className={`flex items-center gap-2 border px-2 py-1.5 rounded-lg ${isWorking ? 'border-emerald-200 bg-emerald-50' : 'border-slate-100 bg-slate-50 opacity-70'} w-[calc(50%-0.25rem)]`}>
+                          <img src={s.avatar || `https://api.dicebear.com/7.x/notionists/svg?seed=${s.name}`} alt={s.name} className="w-8 h-8 rounded-full border border-white bg-slate-200 object-cover" />
+                          <div className="flex flex-col flex-1 min-w-0">
+                            <div className="text-sm font-bold text-slate-800 truncate">{s.name}</div>
+                            <div className={`text-[10px] font-bold ${isWorking ? 'text-emerald-600' : 'text-slate-400'}`}>{todayShift}</div>
+                          </div>
+                        </div>
+                      )
+                   })}
                 </div>
              </div>
           </div>
@@ -247,6 +306,9 @@ export function NurseStation({ setActiveTab }: { setActiveTab?: (tab: string) =>
                     <div className={`font-bold text-sm truncate flex items-center gap-1.5 ${task.status === 'completed' ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
                       {task.type === 'medical' && (
                         <span className="text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded border border-red-100 no-underline leading-none">医嘱</span>
+                      )}
+                      {task.type === 'rehab' && (
+                        <span className="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded border border-indigo-100 no-underline leading-none">理疗</span>
                       )}
                       {task.type === 'temporary' && (
                         <span className="text-[10px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-100 no-underline leading-none">临时</span>
@@ -730,6 +792,23 @@ export function NurseStation({ setActiveTab }: { setActiveTab?: (tab: string) =>
                          elderName: handlingTask.elder,
                          caregiver: '李雪' // Mock current user
                        });
+                       if ((handlingTask as any).fee > 0) {
+                           addBill({
+                               id: `BILL-TSK-${new Date().toISOString().replace(/\D/g, '').slice(0, 8)}-${Math.floor(Math.random() * 90 + 10)}`,
+                               elder: handlingTask.elder,
+                               room: bedItem?.id || '未知',
+                               period: "护理临时服务项",
+                               dueDate: new Date().toISOString().split('T')[0],
+                               status: "未缴费",
+                               total: (handlingTask as any).fee,
+                               items: [
+                                   { name: handlingTask.task || handlingTask.name, amount: (handlingTask as any).fee.toString(), type: "service" }
+                               ]
+                           });
+                           toast.success(`护理任务已完成！员工 李雪 绩效已记录，并向长者生成 ￥${(handlingTask as any).fee} 的计费流水。`);
+                       } else {
+                           toast.success("护理任务已完成！记录已保存。");
+                       }
                        setHandlingTask(null);
                      }} 
                      className="flex-1 py-2.5 bg-blue-600 rounded-xl text-sm font-bold text-white shadow-sm shadow-blue-200 hover:bg-blue-500 transition-all active:scale-[0.98]"
@@ -987,6 +1066,91 @@ export function NurseStation({ setActiveTab }: { setActiveTab?: (tab: string) =>
                  className="px-5 py-2.5 bg-slate-800 text-white rounded-xl font-bold text-sm shadow-sm hover:bg-slate-700 transition-colors"
                >
                  关闭窗口
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showSchedule && (
+        <div className="fixed inset-0 bg-slate-900/50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95">
+            <div className="flex justify-between items-center p-5 border-b border-slate-100 bg-slate-50 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="bg-indigo-100 p-2 rounded-lg"><Calendar className="w-5 h-5 text-indigo-600" /></div>
+                <h3 className="font-black text-slate-800 text-lg">排班管理</h3>
+                <span className="text-sm border border-slate-200 px-3 py-1 rounded-full bg-white font-bold text-slate-600 shadow-sm">{currentStation.name} · 本周</span>
+              </div>
+              <button onClick={() => setShowSchedule(false)} className="text-slate-400 text-xl hover:text-slate-600 p-1 rounded-full transition-colors"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1 min-h-0 bg-[#F4F7FA]">
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                 <table className="w-full text-left border-collapse">
+                   <thead>
+                     <tr className="bg-slate-50 border-b border-slate-200 text-sm font-bold text-slate-600">
+                       <th className="px-4 py-3 border-r border-slate-200">护理人员</th>
+                       <th className="px-4 py-3 border-r border-slate-100 text-center">周一</th>
+                       <th className="px-4 py-3 border-r border-slate-100 text-center">周二</th>
+                       <th className="px-4 py-3 border-r border-slate-100 text-center">周三</th>
+                       <th className="px-4 py-3 border-r border-slate-100 text-center">周四</th>
+                       <th className="px-4 py-3 border-r border-slate-100 text-center">周五</th>
+                       <th className="px-4 py-3 border-r border-slate-100 text-center text-rose-500">周六</th>
+                       <th className="px-4 py-3 border-slate-100 text-center text-rose-500">周日</th>
+                     </tr>
+                   </thead>
+                   <tbody>
+                     {currentSchedule.shifts.map((shift, sIdx) => {
+                       const st = staff.find(s => s.id === shift.staffId);
+                       return (
+                         <tr key={shift.staffId} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                           <td className="px-4 py-3 border-r border-slate-100 font-medium">
+                             <div className="flex items-center gap-3">
+                               <img src={st?.avatar || `https://api.dicebear.com/7.x/notionists/svg?seed=${shift.staffName}`} className="w-8 h-8 rounded-full border border-slate-200 object-cover" />
+                               <div className="flex flex-col">
+                                 <span className="text-slate-800 font-bold">{st?.name || shift.staffName}</span>
+                                 <span className="text-xs text-slate-400">{st?.role || '护理员'}</span>
+                               </div>
+                             </div>
+                           </td>
+                           {[0,1,2,3,4,5,6].map(day => (
+                             <td key={day} className="px-2 py-3 border-r border-slate-100 text-center">
+                               <select 
+                                 value={shift.days[day]}
+                                 onChange={(e) => {
+                                   const newSchedule = { ...currentSchedule };
+                                   const targetShift = { ...newSchedule.shifts[sIdx] };
+                                   const targetDays = [...targetShift.days];
+                                   targetDays[day] = e.target.value;
+                                   targetShift.days = targetDays;
+                                   const newShifts = [...newSchedule.shifts];
+                                   newShifts[sIdx] = targetShift;
+                                   newSchedule.shifts = newShifts;
+                                   saveSchedule(newSchedule);
+                                   toast.success(`${st?.name || shift.staffName} 的排班已更新为 ${e.target.value}`);
+                                 }}
+                                 className="w-[80%] mx-auto text-sm font-bold bg-transparent hover:bg-slate-100 transition-colors cursor-pointer rounded outline-none p-1.5 text-center appearance-none"
+                                 style={{ color: shift.days[day] === '白班' ? '#059669' : shift.days[day] === '夜班' ? '#2563eb' : '#94a3b8' }}
+                               >
+                                 <option value="白班" className="text-emerald-600 font-bold">白班</option>
+                                 <option value="中班" className="text-amber-500 font-bold">中班</option>
+                                 <option value="夜班" className="text-blue-600 font-bold">夜班</option>
+                                 <option value="休息" className="text-slate-400 font-bold">休息</option>
+                               </select>
+                             </td>
+                           ))}
+                         </tr>
+                       )
+                     })}
+                   </tbody>
+                 </table>
+              </div>
+            </div>
+            
+            <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-white">
+               <button 
+                 onClick={() => setShowSchedule(false)} 
+                 className="px-5 py-2.5 bg-slate-800 text-white rounded-xl font-bold text-sm shadow-sm hover:bg-slate-700 transition-colors"
+               >
+                 确认关闭
                </button>
             </div>
           </div>

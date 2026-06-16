@@ -3,8 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Users, FileText, Search, PlusCircle, Filter, Edit3, Eye, FileSignature, X, Upload, Calendar, ArrowRight, ShieldCheck, Phone, CheckCircle2, Sparkles, Loader2 } from "lucide-react";
 import { generateCareReport } from "../services/aiService";
 import { toast } from "sonner";
+import { useStore } from "../store";
 
 export function CustomerArchives() {
+  const { customerArchives: archives, agreements } = useStore();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showAgreementModal, setShowAgreementModal] = useState(false);
@@ -22,36 +24,23 @@ export function CustomerArchives() {
     setReportResult('');
     try {
       const mockCareRecords = [
-        "今天 08:30 晨间基础护理，协助进食，血压 120/80",
-        "昨天 16:00 完成洗浴辅助，情绪平稳。"
+        "今天 10:30 电话沟通，家属表示对A栋单间比较感兴趣，但还在对比价格。",
+        "昨天 14:00 首次来访参观，对环境满意，长者需坐轮椅。"
       ];
       const mockHealthData = [
-        "心率: 72 bpm (正常)",
-        "呼吸率: 18 次/分 (正常)",
-        "睡眠质量: 良好，无长时间离床"
+        "意向房型: 单间/双人包间",
+        "关注点: 医疗配套、康复设施",
+        "长者状态: 偏瘫康复期，意识清醒"
       ];
       const res = await generateCareReport(selectedArchive.name, mockCareRecords, mockHealthData);
       setReportResult(res);
-      toast.success('家属关怀周报生成成功');
+      toast.success('客户意向跟进简报生成成功');
     } catch (e: any) {
       toast.error(e.message || '生成报告失败');
     } finally {
       setIsGeneratingReport(false);
     }
   };
-
-  const [archives, setArchives] = useState([
-    { id: "A001", name: "王建军", age: 78, gender: "男", status: "已入住", careLevel: "二级护理", familyContact: "王小明 (儿子)", phone: "13912345678", date: "2023-05-12", idCard: "11010519450812XXXX", bedInfo: "A栋-2层-205室-01床", agreementStatus: "normal" },
-    { id: "A002", name: "李淑芬", age: 82, gender: "女", status: "签约中", careLevel: "待评估", familyContact: "张伟 (女婿)", phone: "13888889999", date: "2023-10-20", idCard: "11010819410315XXXX", bedInfo: "分配中", agreementStatus: "pending" },
-    { id: "A003", name: "赵铁柱", age: 75, gender: "男", status: "已入住", careLevel: "三级护理", familyContact: "赵强 (儿子)", phone: "13766667777", date: "2022-11-05", idCard: "31010419481122XXXX", bedInfo: "B栋-3层-302室-02床", agreementStatus: "expiring" },
-    { id: "A004", name: "陈阿娇", age: 85, gender: "女", status: "预定床位", careLevel: "特级护理", familyContact: "林雪 (女儿)", phone: "13655554444", date: "2023-10-22", idCard: "32010219380918XXXX", bedInfo: "预定(C栋-1层)", agreementStatus: "none" },
-    { id: "A005", name: "钱多多", age: 79, gender: "男", status: "已退院", careLevel: "-", familyContact: "钱少 (儿子)", phone: "13544443333", date: "2021-08-15", idCard: "44010619440510XXXX", bedInfo: "-", agreementStatus: "expired" },
-  ]);
-
-  const agreements = [
-    { id: "AGR-2023-001", title: "机构养老服务合同", startDate: "2023-05-12", endDate: "2024-05-11", guarantor: "王小明", status: "active" },
-    { id: "AGR-2023-002", title: "补充医疗照护协议", startDate: "2023-06-01", endDate: "2024-05-11", guarantor: "王小明", status: "active" },
-  ];
 
   const handleOpenView = (archive: any) => {
     setSelectedArchive(archive);
@@ -134,8 +123,8 @@ export function CustomerArchives() {
                     <td className="px-6 py-4">
                       <div className="mb-1">
                         <span className={`px-2 py-0.5 text-xs font-medium rounded ${
-                          item.status === '已入住' ? 'bg-emerald-100 text-emerald-700' :
-                          item.status === '签约中' || item.status === '预定床位' ? 'bg-amber-100 text-amber-700' :
+                          item.status === '已交定金' || item.status === '预定床位' ? 'bg-emerald-100 text-emerald-700' :
+                          item.status === '意向强烈' || item.status === '初次咨询' ? 'bg-amber-100 text-amber-700' :
                           'bg-slate-100 text-slate-600'
                         }`}>
                           {item.status}
@@ -168,7 +157,7 @@ export function CustomerArchives() {
           </div>
           
           <div className="p-4 border-t border-slate-100 flex items-center justify-between text-sm text-slate-500">
-            <div>共查询到 120 条记录</div>
+            <div>共查询到 {archives?.length || 0} 条记录</div>
             <div className="flex gap-1">
               <button className="px-3 py-1 border border-slate-200 rounded text-slate-400 cursor-not-allowed">上一页</button>
               <button className="px-3 py-1 border border-slate-200 bg-emerald-50 text-emerald-600 font-medium rounded">1</button>
@@ -305,7 +294,7 @@ export function CustomerArchives() {
               </div>
 
               <div className="space-y-4">
-                {agreements.map((agr) => (
+                {agreements.filter((a: any) => a.archiveId === selectedArchive?.id).map((agr: any) => (
                   <div key={agr.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3">
@@ -382,7 +371,7 @@ export function CustomerArchives() {
                  <div>
                    <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                      {selectedArchive.name}
-                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${selectedArchive.status === '已入住' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${selectedArchive.status === '已交定金' || selectedArchive.status === '预定床位' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                        {selectedArchive.status}
                      </span>
                    </h3>
@@ -443,27 +432,27 @@ export function CustomerArchives() {
                   {/* 近期记录 */}
                   <div className="bg-white border text-sm border-slate-200 rounded-xl overflow-hidden">
                     <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 font-bold text-slate-700 flex justify-between items-center">
-                      近期护理台账记录摘要
+                      线索沟通与跟进记录摘要
                       <button 
                         onClick={handleGenerateReport}
                         disabled={isGeneratingReport}
                         className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded text-xs transition-colors font-medium border border-indigo-200"
                       >
                         {isGeneratingReport ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-indigo-500" />}
-                        AI一键生成家属关怀周报
+                        AI提炼潜在客户意向简报
                       </button>
                     </div>
                     <div className="p-4">
                        <div className="relative border-l-2 border-emerald-100 pl-4 py-1 space-y-4">
                          <div className="relative">
                             <div className="absolute -left-[21px] w-2 h-2 bg-emerald-500 rounded-full top-1.5"></div>
-                            <div className="text-xs text-slate-400 mb-0.5">今天 08:30</div>
-                            <div className="text-slate-700 font-medium">晨间基础护理，协助进食，血压 120/80</div>
+                            <div className="text-xs text-slate-400 mb-0.5">今天 10:30</div>
+                            <div className="text-slate-700 font-medium">电话沟通，家属表示对A栋单间比较感兴趣，但还在对比价格。</div>
                          </div>
                          <div className="relative">
                             <div className="absolute -left-[21px] w-2 h-2 bg-emerald-500 rounded-full top-1.5"></div>
-                            <div className="text-xs text-slate-400 mb-0.5">昨天 16:00</div>
-                            <div className="text-slate-700 font-medium">完成洗浴辅助，情绪平稳。</div>
+                            <div className="text-xs text-slate-400 mb-0.5">昨天 14:00</div>
+                            <div className="text-slate-700 font-medium">首次来访参观，对环境满意，长者需坐轮椅。</div>
                          </div>
                        </div>
                        
@@ -471,20 +460,20 @@ export function CustomerArchives() {
                          <div className="mt-4 p-3 bg-indigo-50/50 border border-indigo-100 rounded-lg">
                            <h5 className="text-xs font-bold text-indigo-800 mb-2 flex items-center gap-1">
                              <Sparkles className="w-3 h-3 text-indigo-600" />
-                             本周关怀周报 (AI 生成)
+                             客户跟进与促单建议 (AI 生成)
                            </h5>
                            <div className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">
                              {reportResult}
                            </div>
                            <div className="mt-3 flex justify-end">
                              <button className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-700 transition">
-                               发送至家属小程序
+                               保存至跟进档案
                              </button>
                            </div>
                          </div>
                        )}
 
-                       <button className="mt-4 text-xs font-medium text-slate-500 hover:text-emerald-600 flex items-center gap-1">查看完整照护计划与台账 <ArrowRight className="w-3 h-3" /></button>
+                       <button className="mt-4 text-xs font-medium text-slate-500 hover:text-emerald-600 flex items-center gap-1">查看完整沟通流转台账 <ArrowRight className="w-3 h-3" /></button>
                     </div>
                   </div>
                 </div>

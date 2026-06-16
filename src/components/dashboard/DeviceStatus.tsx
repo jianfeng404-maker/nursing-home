@@ -11,8 +11,8 @@ export function DeviceStatus() {
   ];
 
   return (
-    <Card className="col-span-1 md:col-span-2 lg:col-span-1 border-none shadow-sm shadow-slate-200/50 bg-white">
-      <CardHeader className="py-5 px-6 border-b border-slate-50">
+    <Card className="col-span-1 md:col-span-2 lg:col-span-1 border-none shadow-sm shadow-slate-200/50 bg-white flex flex-col h-full overflow-hidden">
+      <CardHeader className="py-5 px-6 border-b border-slate-50 shrink-0">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-bold text-slate-800 tracking-tight flex items-center gap-2">
             <Cpu className="w-5 h-5 text-indigo-600" />
@@ -21,7 +21,7 @@ export function DeviceStatus() {
           <div className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md">共 321 台</div>
         </div>
       </CardHeader>
-      <CardContent className="p-6">
+      <CardContent className="p-6 flex-1 overflow-y-auto hidden-scrollbar">
         <div className="space-y-5">
           {categories.map((cat, i) => {
             const ratio = cat.online / cat.total;

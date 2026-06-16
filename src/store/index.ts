@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { db } from '../lib/firebase';
-import { doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { toast } from 'sonner';
+
+
 
 export interface CareLevel {
   id: string;
@@ -114,9 +115,53 @@ interface Task {
   time: string;
   staff: string;
   status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
-  type: 'care' | 'medical' | 'entertainment' | 'cleaning' | 'temporary';
+  type: 'care' | 'medical' | 'entertainment' | 'cleaning' | 'temporary' | 'rehab';
   medications?: string[];
   requirements?: string;
+}
+
+export interface Round {
+  id: string;
+  elder: string;
+  elderId: string;
+  room: string;
+  time: string;
+  doctor: string;
+  type: string;
+  status: string;
+  notes: string;
+}
+
+export interface RehabPlanModel {
+  id: string;
+  elder: string;
+  elderId: string;
+  room: string;
+  desc: string;
+  therapist: string;
+  status: string;
+  progress: number;
+}
+
+export interface NursingStation {
+  id: string;
+  name: string;
+  manager: string;
+  buildings: string[]; // 关联的楼栋
+  floors: string[]; // 关联的楼层
+  assignedStaff: string[]; // 分配到该护理站的常规人员
+}
+
+export interface WeeklySchedule {
+  id: string;      // {stationId}-{weekStart}
+  stationId: string;
+  weekStart: string; // YYYY-MM-DD representing the Monday
+  shifts: {
+    staffId: string;
+    staffName: string;
+    isBorrowed: boolean;  // 标识是否是外站借调
+    days: string[]; // length 7 (Mon-Sun), values '白班', '夜班', '休息', etc
+  }[];
 }
 
 export interface CareRecord {
@@ -156,6 +201,95 @@ export interface Assessment {
   answers?: Record<string, number>;
 }
 
+export interface AdmissionRecordType {
+  id: string;
+  name: string;
+  assessmentLevel: string;
+  family: string;
+  phone: string;
+  idCard: string;
+  status: 'pending' | 'processing' | 'completed';
+  progress: { info: boolean; bed: boolean; contract: boolean; payment: boolean };
+  roombed?: string;
+}
+
+export interface DischargeRecordType {
+  id: string;
+  name: string;
+  room: string;
+  type: string;
+  reason: string;
+  applyDate: string;
+  leaveDate: string;
+  status: 'pending' | 'processing' | 'completed';
+  checks: { items: boolean; medical: boolean; fee: boolean };
+}
+
+export interface BillItem {
+  name: string;
+  amount: string;
+  type?: string;
+  category?: string;
+}
+
+export interface BillRecordType {
+  id: string;
+  elder: string;
+  room?: string;
+  period: string;
+  dueDate?: string;
+  status: string; // e.g. '待核对', '已核发 (待缴款)', '已缴费', '未缴费'
+  total: string; // totalAmount
+  items?: BillItem[];
+  deductions?: BillItem[];
+  tempItems?: any[];
+}
+
+export interface TransactionType {
+  id: string;
+  billId?: string | null;
+  elderId: string;
+  amount: number;
+  direction: string;
+  method: string;
+  operator: string;
+  txTime: string;
+}
+
+export interface InsuranceClaimType {
+  id: string;
+  name: string;
+  type: string;
+  period: string;
+  serviceDays: number;
+  amount: number;
+  status: string;
+}
+
+export interface InventoryItem {
+  id: string;
+  name: string;
+  warehouse: string;
+  stock: number;
+  unit: string;
+  safeStock: number;
+  val: string;
+  lastUpdate: string;
+}
+
+export interface CarePlanModel {
+  id: string;
+  elderId: string;
+  elderName: string;
+  room: string;
+  careLevel: string;
+  goal: string;
+  nextReview: string;
+  manager: string;
+  status: string;
+  tasks: any[];
+}
+
 export interface SysUser {
   id: string; // Auth UID
   username: string; // Email
@@ -174,14 +308,49 @@ export interface SysRole {
   permissions?: string[];
 }
 
+export interface CustomerArchive {
+  id: string;
+  name: string;
+  age: number;
+  gender: string;
+  status: string;
+  careLevel?: string;
+  familyContact?: string;
+  phone?: string;
+  date?: string;
+  idCard?: string;
+  bedInfo?: string;
+  agreementStatus?: string;
+}
+
+export interface Agreement {
+  id: string;
+  archiveId: string;
+  title: string;
+  startDate: string;
+  endDate?: string;
+  guarantor?: string;
+  status?: string;
+}
+
+export interface InventoryAudit {
+  id: string;
+  title: string;
+  status: string;
+  date: string;
+}
+
 export interface StoreState {
   elders: Elder[];
   staff: StaffMember[];
   beds: Bed[];
   alerts: Alert[];
   tasks: Task[];
+  rounds: Round[];
+  rehabPlans: RehabPlanModel[];
   careRecords: CareRecord[];
   iotDevices: IoTDevice[];
+  transactions: TransactionType[];
   careLevels: CareLevel[];
   serviceItems: ServiceItem[];
   assessments: Assessment[];
@@ -191,7 +360,19 @@ export interface StoreState {
   roomTypes: RoomType[];
   sysUsers: SysUser[];
   sysRoles: SysRole[];
+  nursingStations: NursingStation[];
+  schedules: WeeklySchedule[];
+  customerArchives: CustomerArchive[];
+  agreements: Agreement[];
+  inventoryAudits: InventoryAudit[];
   
+  admissions: AdmissionRecordType[];
+  discharges: DischargeRecordType[];
+  bills: BillRecordType[];
+  insuranceClaims: any[];
+  inventory: InventoryItem[];
+  carePlans: CarePlanModel[];
+
   // Drawer Global State
   targetElderId: string | null;
   targetAction: string | null;
@@ -201,6 +382,13 @@ export interface StoreState {
   setTargetElderTab: (tab: string) => void;
   
   // Actions
+  addRound: (round: Round) => void;
+  updateRound: (id: string, updates: Partial<Round>) => void;
+  updateRoundStatus: (id: string, status: string, notes?: string) => void;
+
+  addRehabPlan: (plan: RehabPlanModel) => void;
+  updateRehabPlan: (id: string, updates: Partial<RehabPlanModel>) => void;
+
   addElder: (elder: Elder) => void;
   updateElder: (id: string, elder: Partial<Elder>) => void;
   removeElder: (id: string) => void;
@@ -224,8 +412,17 @@ export interface StoreState {
 
   bindIoTDevice: (device: IoTDevice) => void;
 
-  setCareLevels: (levels: CareLevel[]) => void;
-  setServiceItems: (items: ServiceItem[]) => void;
+  addCareLevel: (level: CareLevel) => void;
+  updateCareLevel: (id: string, updates: Partial<CareLevel>) => void;
+  removeCareLevel: (id: string) => void;
+
+  addServiceItem: (item: ServiceItem) => void;
+  updateServiceItem: (id: string, updates: Partial<ServiceItem>) => void;
+  removeServiceItem: (id: string) => void;
+  
+  saveNursingStation: (station: NursingStation) => void;
+  removeNursingStation: (id: string) => void;
+  saveSchedule: (schedule: WeeklySchedule) => void;
 
   addAssessment: (assessment: Assessment) => void;
   updateAssessment: (id: string, updates: Partial<Assessment>) => void;
@@ -254,11 +451,45 @@ export interface StoreState {
   updateSysRole: (id: string, role: Partial<SysRole>) => void;
   removeSysRole: (id: string) => void;
 
+  addCustomerArchive: (archive: CustomerArchive) => void;
+  updateCustomerArchive: (id: string, arc: Partial<CustomerArchive>) => void;
+  removeCustomerArchive: (id: string) => void;
+
+  addAgreement: (agreement: Agreement) => void;
+  updateAgreement: (id: string, agr: Partial<Agreement>) => void;
+  removeAgreement: (id: string) => void;
+
+  addInventoryAudit: (audit: InventoryAudit) => void;
+  updateInventoryAudit: (id: string, aud: Partial<InventoryAudit>) => void;
+  removeInventoryAudit: (id: string) => void;
+
+  updateAdmission: (id: string, record: Partial<AdmissionRecordType>) => void;
+  addAdmission: (record: AdmissionRecordType) => void;
+  updateDischarge: (id: string, record: Partial<DischargeRecordType>) => void;
+  addDischarge: (record: DischargeRecordType) => void;
+  updateBillStatus: (id: string, status: string) => void;
+  addTransaction: (tx: TransactionType) => void;
+  addBill: (bill: BillRecordType) => void;
+  updateBill: (id: string, updates: Partial<BillRecordType>) => void;
+  updateInsuranceClaimStatus: (id: string, status: string) => void;
+  addInsuranceClaim?: (claim: InsuranceClaimType) => void;
+  updateInventory: (id: string, updates: Partial<InventoryItem>) => void;
+  addCarePlan: (plan: CarePlanModel) => void;
+
   fetchInitialData: () => Promise<void>;
 }
 
 // Initial mock data to bootstrap the state
-const initialStaff: StaffMember[] = [
+export const initialInventory: InventoryItem[] = [
+  { id: "MAT-1001", name: "医用外科口罩", warehouse: "医疗库", stock: 1500, unit: "个", safeStock: 2000, val: "750.00", lastUpdate: "今天 09:30" },
+  { id: "MAT-1002", name: "无菌纱布块", warehouse: "医疗库", stock: 850, unit: "包", safeStock: 500, val: "2,125.00", lastUpdate: "昨天 14:20" },
+  { id: "MAT-2001", name: "大米(东北珍宝岛)", warehouse: "食品库", stock: 50, unit: "kg", safeStock: 100, val: "425.00", lastUpdate: "2天前" },
+  { id: "MAT-3001", name: "成人纸尿裤(L号)", warehouse: "后勤库", stock: 320, unit: "包", safeStock: 150, val: "14,400.00", lastUpdate: "今天 10:15" },
+  { id: "MAT-4001", name: "84消毒液", warehouse: "后勤库", stock: 12, unit: "桶", safeStock: 20, val: "540.00", lastUpdate: "3天前" },
+  { id: "MAT-1005", name: "轮椅(标准版)", warehouse: "固定资产库", stock: 2, unit: "辆", safeStock: 5, val: "1,200.00", lastUpdate: "1周前" },
+];
+
+export const initialStaff: StaffMember[] = [
   { id: "EMP-001", name: "张明宇", dept: "护理一部", position: "护理主管", phone: "138-0011-0001", status: "在职", role: "主管", avatar: "https://i.pravatar.cc/150?u=EMP-1", face: true, card: "1A:2B:3C", fingerprint: false, doors: ["园区正大门", "公共活动室", "康复理疗区"] },
   { id: "EMP-002", name: "李雪", dept: "护理一部", position: "高级护理员", phone: "138-0011-0002", status: "在职", role: "员工", avatar: "https://i.pravatar.cc/150?u=EMP-2", face: false, card: null, fingerprint: false, doors: [] },
   { id: "EMP-003", name: "赵铁柱", dept: "护理部", position: "初级护理员", phone: "138-0011-0003", status: "在职", role: "员工", avatar: "https://i.pravatar.cc/150?u=EMP-3", face: true, card: "1A:2B:3C", fingerprint: false, doors: ["园区正大门", "公共活动室", "康复理疗区"] },
@@ -267,9 +498,11 @@ const initialStaff: StaffMember[] = [
   { id: "EMP-006", name: "陈敏儿", dept: "护理部", position: "高级护理员", phone: "138-0011-0006", status: "在职", role: "员工", avatar: "https://i.pravatar.cc/150?u=EMP-6", face: true, card: "2A:3B:4C", fingerprint: false, doors: ["园区正大门", "公共活动室"] },
   { id: "EMP-007", name: "周文华", dept: "行政部", position: "行政专员", phone: "138-0011-0007", status: "在职", role: "员工", avatar: "https://i.pravatar.cc/150?u=EMP-7", face: false, card: null, fingerprint: false, doors: ["园区正大门", "行政办公区"] },
   { id: "EMP-008", name: "林建国", dept: "安保部", position: "安保队长", phone: "138-0011-0008", status: "在职", role: "主管", avatar: "https://i.pravatar.cc/150?u=EMP-8", face: true, card: "8B:9C:0D", fingerprint: true, doors: ["园区正大门", "监控室", "所有区域"] },
+  { id: "EMP-009", name: "王康复", dept: "医疗与康复部", position: "理疗师", phone: "138-0011-0009", status: "在职", role: "员工", avatar: "https://i.pravatar.cc/150?u=EMP-9", face: true, card: null, fingerprint: false, doors: ["园区正大门", "康复理疗区", "医疗室"] },
+  { id: "EMP-010", name: "李医师", dept: "医疗与康复部", position: "康复医师", phone: "138-0011-0010", status: "在职", role: "主管", avatar: "https://i.pravatar.cc/150?u=EMP-10", face: true, card: null, fingerprint: false, doors: ["园区正大门", "康复理疗区", "医疗室"] },
 ];
 
-const initialElders: Elder[] = [
+export const initialElders: Elder[] = [
   { id: '1', name: '王桂珍', room: 'A栋-101', age: 78, gender: '女', careLevel: '二级护理', healthStatus: '高血压', admissionDate: '2023-05-12', avatar: 'https://i.pravatar.cc/150?u=ELD-1', face: true, card: null, fingerprint: true, doors: ["园区正大门", "公共活动室", "康复理疗区"] },
   { id: '2', name: '钱德明', room: 'B栋-205', age: 82, gender: '男', careLevel: '特级护理', healthStatus: '糖尿病, 行动不便', admissionDate: '2022-11-08', avatar: 'https://i.pravatar.cc/150?u=ELD-2', face: false, card: null, fingerprint: false, doors: [] },
   { id: '3', name: '吴秀兰', room: 'A栋-102', age: 76, gender: '女', careLevel: '三级护理', healthStatus: '心血管疾病', admissionDate: '2021-03-20', avatar: 'https://i.pravatar.cc/150?u=ELD-3', face: false, card: null, fingerprint: false, doors: [] },
@@ -292,7 +525,7 @@ const initialElders: Elder[] = [
   { id: '20', name: '华志明', room: 'C栋-301', age: 78, gender: '男', careLevel: '自理护理', healthStatus: '健康状况良好，高血脂', admissionDate: '2024-06-01', avatar: 'https://i.pravatar.cc/150?u=ELD-20', face: true, card: "AA:11:22", fingerprint: true, doors: ["园区正大门", "公共活动室", "康复理疗区", "棋牌室", "健身房"] },
 ];
 
-const initialBeds: Bed[] = [
+export const initialBeds: Bed[] = [
   { id: '101-1', building: 'A栋', floor: '一层 (重度护理区)', room: '101', roomType: '双人间', status: 'occupied', elderId: '1' },
   { id: '101-2', building: 'A栋', floor: '一层 (重度护理区)', room: '101', roomType: '双人间', status: 'occupied', elderId: '4' },
   { id: '102-1', building: 'A栋', floor: '一层 (重度护理区)', room: '102', roomType: '双人间', status: 'occupied', elderId: '3' },
@@ -311,14 +544,14 @@ const initialBeds: Bed[] = [
   { id: '205-2', building: 'B栋', floor: '二层 (特级护理区)', room: '205', roomType: '双人间', status: 'occupied', elderId: '14' },
 ];
 
-const initialAlerts: Alert[] = [
+export const initialAlerts: Alert[] = [
   {
     id: "ALT-001",
     type: "fall",
-    title: "发生跌倒告警",
+    title: "毫米波跌倒雷达：发生跌倒",
     location: "102-1",
     resident: "吴秀兰",
-    device: "毫米波雷达",
+    device: "毫米波跌倒雷达",
     time: "2分钟前",
     level: "critical",
     status: 'pending',
@@ -326,7 +559,7 @@ const initialAlerts: Alert[] = [
   {
     id: "ALT-002",
     type: "sos",
-    title: "紧急呼叫告警",
+    title: "床头呼叫器：紧急呼叫",
     location: "101-1",
     resident: "王桂珍",
     device: "床头呼叫器",
@@ -334,24 +567,107 @@ const initialAlerts: Alert[] = [
     level: "critical",
     status: 'pending',
   },
+  {
+    id: "ALT-003",
+    type: "vital_signs",
+    title: "智能床垫：心率异常偏高 (135次/分)",
+    location: "205-1",
+    resident: "钱德明",
+    device: "智能生命体征床垫",
+    time: "5分钟前",
+    level: "high",
+    status: 'pending',
+    notes: "护工(赵铁柱)正在现场确认"
+  },
+  {
+    id: "ALT-004",
+    type: "leave_bed",
+    title: "智能床垫：夜间起夜离床超时 (>30分钟)",
+    location: "105-2",
+    resident: "李建国",
+    device: "智能床垫",
+    time: "15分钟前",
+    level: "warning",
+    status: 'pending',
+  },
+  {
+    id: "ALT-005",
+    type: "geo_fence",
+    title: "防走失系统：认知症长者越界报警 (靠近大门)",
+    location: "102-2",
+    resident: "防走失长者",
+    device: "防走失胸牌/蓝牙基站",
+    time: "刚刚",
+    level: "critical",
+    status: 'pending',
+  },
+  {
+    id: "ALT-006",
+    type: "vital_signs",
+    title: "智能床垫：连续睡眠呼吸暂停超时 (>15秒)",
+    location: "103-1",
+    resident: "刘爱华",
+    device: "智能生命体征床垫",
+    time: "1分钟前",
+    level: "critical",
+    status: 'pending',
+  },
+  {
+    id: "ALT-007",
+    type: "device_offline",
+    title: "系统健康：防跌倒雷达设备离线",
+    location: "201-1",
+    resident: "未知",
+    device: "101套房主卫防跌倒",
+    time: "1小时前",
+    level: "low",
+    status: 'pending',
+    notes: "网络波动导致假掉线"
+  },
+  {
+    id: "ALT-008",
+    type: "smoke_fire",
+    title: "消防系统：烟雾浓度超标告警",
+    location: "203-1",
+    resident: "公共区域",
+    device: "无线烟感器",
+    time: "3分钟前",
+    level: "critical",
+    status: 'pending',
+    notes: "安保处已派员核查"
+  }
 ];
 
-const initialTasks: Task[] = [
+export const initialTasks: Task[] = [
   { id: '1', name: '辅助服药 (降压药)', elder: '王桂珍 (A栋-101)', time: '10:30', staff: '待指派', status: 'pending', type: 'medical' },
   { id: '2', name: '协助沐浴', elder: '钱德明 (B栋-205)', time: '14:00', staff: '赵铁柱', status: 'in_progress', type: 'care' },
   { id: '3', name: '环境消杀', elder: '公共区域', time: '16:00', staff: '罗大牛', status: 'pending', type: 'cleaning' },
+  { id: '4', name: '偏瘫肢体综合测试、步态训练', elder: '张伟明 (A栋-201)', time: '09:30', staff: '李医师', status: 'pending', type: 'rehab' },
+  { id: '5', name: '记忆力卡片、积木拼图 (认知训练)', elder: '王秀兰 (B栋-305)', time: '14:00', staff: '王康复', status: 'in_progress', type: 'rehab' },
 ];
 
-const initialCareRecords: CareRecord[] = [
+export const initialCareRecords: CareRecord[] = [
   { id: 'REC-001', time: '2023-10-27 08:30:00', type: 'planned_task', content: '晨间护理及测血压', result: '血压130/80，心率75，状态可', elderId: '1', elderName: '王桂珍', caregiver: '张明宇' },
   { id: 'REC-002', time: '2023-10-27 09:15:00', type: 'temporary_care', content: '更换床单被套', result: '已更换', elderId: '3', elderName: '吴秀兰', caregiver: '李雪' },
 ];
 
-const initialIotDevices: IoTDevice[] = [
+export const initialIotDevices: IoTDevice[] = [
   { id: "DEV-RD-101", sn: "SN88492011", name: "101套房主卫防跌倒", catalog: "毫米波防跌倒雷达", bindType: "位置绑定", bindTarget: "A栋-1层-101房-卫生间", status: "在线", lastActive: "刚刚", ip: "192.168.10.15", elderId: "1" },
   { id: "DEV-RD-102", sn: "SN88492012", name: "102套房主卫防跌倒", catalog: "毫米波防跌倒雷达", bindType: "位置绑定", bindTarget: "A栋-1层-102房-卫生间", status: "在线", lastActive: "5分钟前", ip: "192.168.10.16", elderId: "3" },
   { id: "DEV-SOS-01", sn: "SN-S-00102", name: "随身呼叫器", catalog: "一键紧急呼叫器", bindType: "人员绑定", bindTarget: "王桂珍 (A101)", status: "在线", lastActive: "刚刚", ip: "Zigbee 网关", elderId: "1" },
   { id: "DEV-MAT-05", sn: "SM300-99X2", name: "A105智能床垫", catalog: "智能体征监测床垫", bindType: "床位绑定", bindTarget: "A栋-105房-1号床", status: "离线", lastActive: "2小时前", ip: "4G网络", elderId: "1" },
+];
+
+export const initialRounds: Round[] = [
+  { id: "R2026-001", elder: "张伟明", elderId: "E001", room: "A栋-201", time: "09:30", doctor: "王主任", type: "例行查房", status: "已完成", notes: "血压偏高，建议调整降压药" },
+  { id: "R2026-002", elder: "李秀兰", elderId: "E002", room: "B栋-305", time: "10:15", doctor: "刘医生", type: "重点观察", status: "未开始", notes: "昨日有咳嗽症状" },
+  { id: "R2026-003", elder: "赵建国", elderId: "E003", room: "A栋-102", time: "11:00", doctor: "王主任", type: "家属预约", status: "未开始", notes: "复查关节情况" },
+];
+
+export const initialRehabPlans: RehabPlanModel[] = [
+  { id: "RP2026-001", elder: "张伟明", elderId: "E001", room: "A栋-201", desc: "右侧偏瘫肢体康复", therapist: "李医师", status: "进行中", progress: 65 },
+  { id: "RP2026-002", elder: "王秀兰", elderId: "E00X", room: "B栋-305", desc: "阿尔茨海默症认知训练", therapist: "王康复", status: "进行中", progress: 40 },
+  { id: "RP2026-003", elder: "刘建国", elderId: "E00Y", room: "A栋-102", desc: "髋关节置换术后恢复", therapist: "李医师", status: "已完成", progress: 100 },
 ];
 
 export const initialCareLevels: CareLevel[] = [
@@ -525,30 +841,177 @@ export const initialServiceItems: ServiceItem[] = [
   }
 ];
 
-const initialAssessments: Assessment[] = [
+export const initialAssessments: Assessment[] = [
   { id: "ASM-001", elderId: "1", elderName: "王桂珍", room: "A栋-101", type: "日常生活能力评定 (ADL / Barthel)", score: "65", assessor: "张明宇", date: "2023-11-20", status: "已完成" },
   { id: "ASM-002", elderId: "2", elderName: "钱德明", room: "B栋-205", type: "精神状态评估 (MMSE)", score: "12", assessor: "孙国轩", date: "2023-10-15", status: "已完成" },
   { id: "ASM-003", elderId: "3", elderName: "吴秀兰", room: "A栋-102", type: "跌倒坠床风险评估 (Morse)", score: "-", assessor: "李雪", date: "2023-11-25", status: "待评估" }
 ];
 
-const initialSysUsers: SysUser[] = [
+export const initialSysUsers: SysUser[] = [
   { id: 'U1', username: 'admin@system.com', name: '系统管理员', roles: ['超级管理员'], status: '正常', lastLogin: '-' }
 ];
 
-const initialSysRoles: SysRole[] = [
+export const initialSysRoles: SysRole[] = [
   { id: 'R1', name: '超级管理员', code: 'admin', desc: '拥有系统所有权限', userCount: 1 },
   { id: 'R2', name: '部门主管', code: 'dept_manager', desc: '负责部门内人员和排班', userCount: 0 },
   { id: 'R3', name: '护理员', code: 'caregiver', desc: '一线护理人员，处理任务', userCount: 0 },
 ];
 
+export const initialAdmissions: AdmissionRecordType[] = [
+  { id: "ADM-20231102-01", name: "张明宇", assessmentLevel: "二级护理", family: "张小强", phone: "13800138000", idCard: "1101051945XXXXXXXX", status: "processing", progress: { info: true, bed: true, contract: false, payment: false } },
+  { id: "ADM-20231030-01", name: "李秀红", assessmentLevel: "认知症专护", family: "王芳", phone: "13900139000", idCard: "1101081950XXXXXXXX", status: "pending", progress: { info: false, bed: false, contract: false, payment: false } },
+  { id: "ADM-20231028-02", name: "王大山", assessmentLevel: "自理", family: "王建国", phone: "13700137000", idCard: "1101011940XXXXXXXX", status: "completed", progress: { info: true, bed: true, contract: true, payment: true }, roombed: "B栋-302-01" },
+];
+
+export const initialDischarges: DischargeRecordType[] = [
+  { id: "OUT-20231102-01", name: "赵大爷", room: "A栋-305", type: "正常退住", reason: "家属接回居家照护", applyDate: "2023-11-01", leaveDate: "2023-11-05", status: "processing", checks: { items: true, medical: false, fee: false } },
+  { id: "OUT-20231028-02", name: "王奶奶", room: "B栋-102", type: "医疗转院", reason: "突发疾病转三甲医院", applyDate: "2023-10-28", leaveDate: "2023-10-28", status: "completed", checks: { items: true, medical: true, fee: true } },
+  { id: "OUT-20231025-01", name: "刘建国", room: "A栋-102", type: "正常退住", reason: "试住期满不满意", applyDate: "2023-10-20", leaveDate: "2023-10-24", status: "completed", checks: { items: true, medical: true, fee: true } },
+];
+
+export const initialCarePlans: CarePlanModel[] = [
+  { id: "PLN-001", elderId: "1", elderName: "王桂珍", room: "A栋-101", careLevel: "二级护理", goal: "维持现有日常生活自理能力，控制高血压指标稳定。", nextReview: "2026-10-20", manager: "李护士长", status: "执行中", tasks: [] },
+  { id: "PLN-002", elderId: "2", elderName: "钱德明", room: "B栋-205", careLevel: "特级护理", goal: "防游走迷失，延缓认知退化，保障营养摄入。", nextReview: "2026-10-05", manager: "张主管", status: "执行中", tasks: [] }
+];
+
+export const initialBills: BillRecordType[] = [
+  { 
+    id: "B-202604-001", elder: "张明宇", room: "A栋-101", period: "2026年04月",
+    total: "8,500.00", status: "待核对",
+    items: [
+      { category: "固定费用", name: "床位费", amount: "4,000.00" },
+      { category: "固定费用", name: "二级护理费", amount: "2,500.00" },
+      { category: "固定费用", name: "基础餐饮费", amount: "1,500.00" },
+      { category: "浮动费用", name: "点餐费/加餐费", amount: "350.00" },
+      { category: "浮动费用", name: "水电费(超额)", amount: "150.00" }
+    ],
+    deductions: [
+      { name: "长护险补贴扣除", amount: "-200.00" }
+    ]
+  },
+  { 
+    id: "B-202604-002", elder: "王秀芳", room: "B栋-205", period: "2026年03月",
+    total: "6,200.00", status: "已核发 (待缴款)",
+    items: [
+      { category: "固定费用", name: "床位费", amount: "3,000.00" },
+      { category: "固定费用", name: "三级护理费", amount: "1,500.00" },
+      { category: "固定费用", name: "基础餐饮费", amount: "1,500.00" },
+      { category: "浮动费用", name: "耗材购买费", amount: "200.00" }
+    ]
+  },
+  { 
+    id: "B-202604-003", elder: "陈建国", room: "A栋-102", period: "2026年03月",
+    total: "6,000.00", status: "已缴费",
+    items: [
+      { category: "固定费用", name: "床位费", amount: "3,000.00" },
+      { category: "固定费用", name: "三级护理费", amount: "1,500.00" },
+      { category: "固定费用", name: "基础餐饮费", amount: "1,500.00" }
+    ]
+  },
+  { 
+    id: "BILL-2026-04-101", elder: "刘奶奶", room: "A栋-101床", period: "2026年04月 (下半月)", dueDate: "2026-05-05", status: "未缴费", total: "4,600.00",
+    items: [
+       { name: "基础床位费 (套房单间)", amount: "2,500.00", type: "fixed" },
+       { name: "二级护理服务费", amount: "1,500.00", type: "fixed" },
+       { name: "营养餐饮费", amount: "600.00", type: "fixed" },
+    ]
+  },
+  { 
+    id: "BILL-2026-04-102", elder: "王爷爷", room: "C栋-305床", period: "2026年04月 (下半月)", dueDate: "2026-05-05", status: "未缴费", total: "3,250.00",
+    items: [
+       { name: "基础床位费 (标准双人)", amount: "1,500.00", type: "fixed" },
+       { name: "三级护理服务费", amount: "1,000.00", type: "fixed" },
+       { name: "基础餐饮费", amount: "600.00", type: "fixed" },
+       { name: "特需陪同看病", amount: "150.00", type: "variable" }
+    ]
+  }
+];
+
+export const initialInsuranceClaims: InsuranceClaimType[] = [
+  { id: 'INS-001', name: '王桂珍', type: '长护险 - 三级', period: '2026年05月', serviceDays: 31, amount: 3100, status: '资料已齐' },
+  { id: 'INS-002', name: '刘建国', type: '长护险 - 特级', period: '2026年05月', serviceDays: 28, amount: 4200, status: '资料已齐' },
+  { id: 'INS-003', name: '陈伯伯', type: '职工医保 (床日)', period: '2026年05月', serviceDays: 15, amount: 1500, status: '待医生签字' },
+  { id: 'INS-011', name: '赵奶奶', type: '长护险 - 二级', period: '2026年04月', serviceDays: 30, amount: 2400, status: '医保局审核中' },
+  { id: 'INS-012', name: '张老先生', type: '长护险 - 三级', period: '2026年04月', serviceDays: 30, amount: 3000, status: '医保局审核中' },
+  { id: 'INS-013', name: '李大爷', type: '职工医保 (床位)', period: '2026年04月', serviceDays: 30, amount: 1800, status: '部分材料需补充' },
+  { id: 'INS-091', name: '王桂珍', type: '长护险 - 三级', period: '2026年03月', serviceDays: 31, amount: 3100, status: '拨付到账' },
+  { id: 'INS-092', name: '刘建国', type: '长护险 - 特级', period: '2026年03月', serviceDays: 31, amount: 4650, status: '拨付到账' },
+];
+
+export const initialTransactions: TransactionType[] = [];
+export const initialSchedules: WeeklySchedule[] = [
+  {
+      id: "NS-001-2026-04-27",
+      stationId: "NS-001",
+      weekStart: "2026-04-27",
+      shifts: [
+        { staffId: "EMP-001", staffName: "张明宇", isBorrowed: false, days: ["白班", "白班", "白班", "夜班", "夜班", "休息", "休息"] },
+        { staffId: "EMP-002", staffName: "李雪", isBorrowed: false, days: ["休息", "休息", "白班", "白班", "夜班", "夜班", "白班"] },
+        { staffId: "EMP-003", staffName: "赵铁柱", isBorrowed: false, days: ["夜班", "夜班", "休息", "白班", "白班", "白班", "夜班"] },
+        { staffId: "EMP-004", staffName: "罗大牛", isBorrowed: false, days: ["白班", "白班", "白班", "白班", "休息", "休息", "白班"] }
+      ]
+  }
+];
+
+export const initialCustomerArchives: CustomerArchive[] = [
+  { id: "A001", name: "王建军", age: 78, gender: "男", status: "已交定金", careLevel: "意向二级", familyContact: "王小明 (儿子)", phone: "13912345678", date: "2023-05-12", idCard: "11010519450812XXXX", bedInfo: "意向床位: A栋-205室", agreementStatus: "normal" },
+  { id: "A002", name: "李淑芬", age: 82, gender: "女", status: "初次咨询", careLevel: "待评估", familyContact: "张伟 (女婿)", phone: "13888889999", date: "2023-10-20", idCard: "11010819410315XXXX", bedInfo: "未确定", agreementStatus: "pending" },
+  { id: "A003", name: "赵铁柱", age: 75, gender: "男", status: "意向强烈", careLevel: "意向三级", familyContact: "赵强 (儿子)", phone: "13766667777", date: "2022-11-05", idCard: "31010419481122XXXX", bedInfo: "意向单间(带独立卫浴)", agreementStatus: "expiring" },
+  { id: "A004", name: "陈阿娇", age: 85, gender: "女", status: "预定床位", careLevel: "意向特级", familyContact: "林雪 (女儿)", phone: "13655554444", date: "2023-10-22", idCard: "32010219380918XXXX", bedInfo: "预定(C栋-1层)", agreementStatus: "none" },
+  { id: "A005", name: "钱多多", age: 79, gender: "男", status: "无意向", careLevel: "-", familyContact: "钱少 (儿子)", phone: "13544443333", date: "2021-08-15", idCard: "44010619440510XXXX", bedInfo: "-", agreementStatus: "expired" },
+];
+
+export const initialAgreements: Agreement[] = [
+  { id: "AGR-2023-001", archiveId: "A001", title: "机构养老服务合同", startDate: "2023-05-12", endDate: "2024-05-11", guarantor: "王小明", status: "active" },
+  { id: "AGR-2023-002", archiveId: "A001", title: "补充医疗照护协议", startDate: "2023-06-01", endDate: "2024-05-11", guarantor: "王小明", status: "active" },
+];
+
+export const initialInventoryAudits: InventoryAudit[] = [
+  { id: "PD-20260401-01", title: "全库盘点", status: "已完成", date: "2026-04-01" },
+  { id: "PD-20260301-01", title: "医疗库盘点", status: "已调账", date: "2026-03-01" },
+];
+
 export const useStore = create<StoreState>((set) => ({
   sysUsers: initialSysUsers,
   sysRoles: initialSysRoles,
+  nursingStations: [
+    {
+      id: "NS-001",
+      name: "A栋综合护理站",
+      manager: "EMP-001",
+      buildings: ["A栋"],
+      floors: [],
+      assignedStaff: ["EMP-001", "EMP-002", "EMP-003", "EMP-004"]
+    },
+    {
+      id: "NS-002",
+      name: "B栋1层护理站",
+      manager: "EMP-002",
+      buildings: ["B栋"],
+      floors: ["1层"],
+      assignedStaff: ["EMP-002", "EMP-005"]
+    }
+  ],
+  schedules: initialSchedules,
+  transactions: initialTransactions,
+  customerArchives: initialCustomerArchives,
+  agreements: initialAgreements,
+  inventoryAudits: initialInventoryAudits,
+  
+  admissions: initialAdmissions,
+  discharges: initialDischarges,
+  bills: initialBills,
+  insuranceClaims: initialInsuranceClaims,
+  inventory: initialInventory,
+  carePlans: initialCarePlans,
+
   elders: initialElders,
   staff: initialStaff,
   beds: initialBeds,
   alerts: initialAlerts,
   tasks: initialTasks,
+  rounds: initialRounds,
+  rehabPlans: initialRehabPlans,
   careRecords: initialCareRecords,
   iotDevices: initialIotDevices,
   careLevels: initialCareLevels,
@@ -582,60 +1045,232 @@ export const useStore = create<StoreState>((set) => ({
   setTargetElderId: (id) => set({ targetElderId: id }),
   setTargetAction: (action) => set({ targetAction: action }),
   setTargetElderTab: (tab) => set({ targetElderTab: tab }),
-  
-  addElder: (elder) => {
-    setDoc(doc(db, 'elders', elder.id), elder).catch(console.error);
-    set((state) => ({ elders: [...state.elders, elder] }));
+
+  addRound: async (round) => {
+    
+    try {
+      const res = await fetch('/api/rounds', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify(round)
+      });
+      if (!res.ok) throw new Error('API Sync Failed');
+      set((state) => ({ rounds: [...state.rounds, round] }));
+    
+    } catch(e) {
+      toast.error('操作失败: ' + e.message);
+      console.error('Failed to sync addRound', e);
+    }
   },
-  updateElder: (id, updatedElder) => {
-    updateDoc(doc(db, 'elders', id), updatedElder).catch(console.error);
-    set((state) => ({
+  updateRound: async (id, updates) => {
+    
+    try {
+      const res = await fetch(`/api/rounds/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify(updates)
+      });
+      if (!res.ok) throw new Error('API Sync Failed');
+      set((state) => ({
+      rounds: state.rounds.map(r => r.id === id ? { ...r, ...updates } : r)
+    }));
+    
+    } catch(e) {
+      toast.error('操作失败: ' + e.message);
+      console.error('Failed to sync updateRound', e);
+    }
+  },
+  updateRoundStatus: async (id, status, notes) => {
+    
+    try {
+      const res = await fetch(`/api/rounds/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ status, notes })
+      });
+      if (!res.ok) throw new Error('API Sync Failed');
+      set((state) => ({
+      rounds: state.rounds.map(r => r.id === id ? { ...r, status, notes: notes || r.notes } : r)
+    }));
+    
+    } catch(e) {
+      toast.error('操作失败: ' + e.message);
+      console.error('Failed to sync updateRoundStatus', e);
+    }
+  },
+
+  addRehabPlan: async (plan) => {
+    
+    try {
+      const res = await fetch('/api/rehab_plans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify(plan)
+      });
+      if (!res.ok) throw new Error('API Sync Failed');
+      set((state) => ({ rehabPlans: [...state.rehabPlans, plan] }));
+    
+    } catch(e) {
+      toast.error('操作失败: ' + e.message);
+      console.error('Failed to sync addRehabPlan', e);
+    }
+  },
+  updateRehabPlan: async (id, updates) => {
+    
+    try {
+      const res = await fetch(`/api/rehab_plans/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify(updates)
+      });
+      if (!res.ok) throw new Error('API Sync Failed');
+      set((state) => ({
+      rehabPlans: state.rehabPlans.map(p => p.id === id ? { ...p, ...updates } : p)
+    }));
+    
+    } catch(e) {
+      toast.error('操作失败: ' + e.message);
+      console.error('Failed to sync updateRehabPlan', e);
+    }
+  },
+  
+  addElder: async (elder) => {
+    
+    try {
+      const res = await fetch('/api/elders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify(elder)
+      });
+      if (!res.ok) throw new Error('API Sync Failed');
+      set((state) => ({ elders: [...state.elders, elder] }));
+    
+    } catch(e) {
+      toast.error('操作失败: ' + e.message);
+      console.error('Failed to sync addElder', e);
+    }
+  },
+  updateElder: async (id, updatedElder) => {
+    
+    try {
+      const res = await fetch(`/api/elders/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify(updatedElder)
+      });
+      if (!res.ok) throw new Error('API Sync Failed');
+      set((state) => ({
       elders: state.elders.map(e => e.id === id ? { ...e, ...updatedElder } : e)
     }));
+    
+    } catch(e) {
+      toast.error('操作失败: ' + e.message);
+      console.error('Failed to sync updateElder', e);
+    }
   },
   removeElder: (id) => {
-    deleteDoc(doc(db, 'elders', id)).catch(console.error);
+    
     set((state) => ({ elders: state.elders.filter(e => e.id !== id) }));
   },
   
-  addStaff: (staff) => {
-    setDoc(doc(db, 'staff', staff.id), staff).catch(console.error);
-    set((state) => ({ staff: [...state.staff, staff] }));
+  addStaff: async (staff) => {
+    
+    try {
+      const res = await fetch('/api/staff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify(staff)
+      });
+      if (!res.ok) throw new Error('API Sync Failed');
+      set((state) => ({ staff: [...state.staff, staff] }));
+    
+    } catch(e) {
+      toast.error('操作失败: ' + e.message);
+      console.error('Failed to sync addStaff', e);
+    }
   },
-  updateStaff: (id, updatedStaff) => {
-    updateDoc(doc(db, 'staff', id), updatedStaff).catch(console.error);
-    set((state) => ({
+  updateStaff: async (id, updatedStaff) => {
+    
+    try {
+      const res = await fetch(`/api/staff/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify(updatedStaff)
+      });
+      if (!res.ok) throw new Error('API Sync Failed');
+      set((state) => ({
       staff: state.staff.map(s => s.id === id ? { ...s, ...updatedStaff } : s)
     }));
+    
+    } catch(e) {
+      toast.error('操作失败: ' + e.message);
+      console.error('Failed to sync updateStaff', e);
+    }
   },
   removeStaff: (id) => {
-    deleteDoc(doc(db, 'staff', id)).catch(console.error);
+    
     set((state) => ({ staff: state.staff.filter(s => s.id !== id) }));
   },
   
-  updateBed: (id, bed) => {
-    updateDoc(doc(db, 'beds', id), bed).catch(console.error);
-    set((state) => ({
+  updateBed: async (id, bed) => {
+    
+    try {
+      const res = await fetch(`/api/beds/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify(bed)
+      });
+      if (!res.ok) throw new Error('API Sync Failed');
+      set((state) => ({
       beds: state.beds.map(b => b.id === id ? { ...b, ...bed } : b)
     }));
+    
+    } catch(e) {
+      toast.error('操作失败: ' + e.message);
+      console.error('Failed to sync updateBed', e);
+    }
   },
   
-  addAlert: (alert) => {
-    setDoc(doc(db, 'alerts', alert.id), alert).catch(console.error);
-    set((state) => ({ alerts: [alert, ...state.alerts] }));
+  addAlert: async (alert) => {
+    
+    try {
+      const res = await fetch('/api/alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify(alert)
+      });
+      if (!res.ok) throw new Error('API Sync Failed');
+      set((state) => ({ alerts: [alert, ...state.alerts] }));
+    
+    } catch(e) {
+      toast.error('操作失败: ' + e.message);
+      console.error('Failed to sync addAlert', e);
+    }
   },
-  updateAlertStatus: (id, status) => {
-    updateDoc(doc(db, 'alerts', id), { status }).catch(console.error);
-    set((state) => ({
+  updateAlertStatus: async (id, status) => {
+    
+    try {
+      const res = await fetch(`/api/alerts/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ status })
+      });
+      if (!res.ok) throw new Error('API Sync Failed');
+      set((state) => ({
       alerts: state.alerts.map(a => a.id === id ? { ...a, status } : a)
     }));
+    
+    } catch(e) {
+      toast.error('操作失败: ' + e.message);
+      console.error('Failed to sync updateAlertStatus', e);
+    }
   },
   resolveAlert: (id, notes, processedBy) => set((state) => {
     const alert = state.alerts.find(a => a.id === id);
     let newRecords = state.careRecords;
     
     if (alert) {
-      updateDoc(doc(db, 'alerts', id), { status: 'resolved', notes, processedBy }).catch(console.error);
+      
       
       const bed = state.beds.find(b => b.id === alert.location);
       const elder = state.elders.find(e => e.name === alert.resident || (bed && e.id === bed.elderId));
@@ -651,23 +1286,49 @@ export const useStore = create<StoreState>((set) => ({
           elderName: elder.name,
           caregiver: processedBy
         };
-        setDoc(doc(db, 'careRecords', record.id), record).catch(console.error);
+        
         newRecords = [record, ...state.careRecords];
+
+        // Sync the new record to API
+        fetch('/api/care_records', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+          body: JSON.stringify(record)
+        }).catch(e => { toast.error('操作失败'); console.error(e); });
       }
     }
     
+    // Sync the alert resolved status to API
+    fetch(`/api/alerts/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+      body: JSON.stringify({ status: 'resolved', notes }) // Only synced status and notes here
+    }).catch(e => { toast.error('操作失败'); console.error(e); });
+
     return {
-      alerts: state.alerts.map(a => a.id === id ? { ...a, status: 'resolved', notes, processedBy } : a),
+      alerts: state.alerts.map(a => a.id === id ? { ...a, status: 'resolved', notes } : a),
       careRecords: newRecords
     };
   }),
   
-  addTask: (task) => {
-    setDoc(doc(db, 'tasks', task.id), task).catch(console.error);
-    set((state) => ({ tasks: [task, ...state.tasks] }));
+  addTask: async (task) => {
+    
+    try {
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify(task)
+      });
+      if (!res.ok) throw new Error('API Sync Failed');
+      set((state) => ({ tasks: [task, ...state.tasks] }));
+    
+    } catch(e) {
+      toast.error('操作失败: ' + e.message);
+      console.error('Failed to sync addTask', e);
+    }
   },
-  updateTaskStatus: (id, status) => {
-    updateDoc(doc(db, 'tasks', id), { status }).catch(console.error);
+  updateTaskStatus: async (id, status) => {
+    
     set((state) => {
       const taskIndex = state.tasks.findIndex(t => t.id === id);
       if (taskIndex === -1) return state;
@@ -705,7 +1366,12 @@ export const useStore = create<StoreState>((set) => ({
           time: timeStr
         };
         
-        setDoc(doc(db, 'careRecords', newRecord.id), newRecord).catch(console.error);
+        // Sync the new record to API
+        fetch('/api/care_records', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+          body: JSON.stringify(newRecord)
+        }).catch(e => { toast.error('操作失败'); console.error(e); });
 
         return { 
           tasks: newTasks,
@@ -715,12 +1381,31 @@ export const useStore = create<StoreState>((set) => ({
 
       return { tasks: newTasks };
     });
+    try {
+      await fetch(`/api/tasks/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ status })
+      });
+    } catch(e) { console.error('Failed to sync updateTaskStatus', e); }
   },
-  updateTaskStaff: (id, staff) => {
-    updateDoc(doc(db, 'tasks', id), { staff, status: 'pending' }).catch(console.error);
-    set((state) => ({
+  updateTaskStaff: async (id, staff) => {
+    
+    try {
+      const res = await fetch(`/api/tasks/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ staff, status: 'pending' })
+      });
+      if (!res.ok) throw new Error('API Sync Failed');
+      set((state) => ({
       tasks: state.tasks.map(t => t.id === id ? { ...t, staff, status: 'pending' as const } : t)
     }));
+    
+    } catch(e) {
+      toast.error('操作失败: ' + e.message);
+      console.error('Failed to sync updateTaskStatus', e);
+    }
   },
   autoAssignTasks: () => set((state) => {
     // Simple mock logic: assign pending tasks to random staff who is '在线'
@@ -731,7 +1416,7 @@ export const useStore = create<StoreState>((set) => ({
       if (t.staff === '未指派' || t.staff === '待指派' || t.staff === '自动排程未指派' || !t.staff) {
         const randomStaff = onlineStaff[Math.floor(Math.random() * onlineStaff.length)];
         const newTask = { ...t, staff: randomStaff.name, status: 'pending' as const };
-        updateDoc(doc(db, 'tasks', t.id), { staff: newTask.staff, status: newTask.status }).catch(console.error);
+        
         return newTask;
       }
       return t;
@@ -739,133 +1424,558 @@ export const useStore = create<StoreState>((set) => ({
     return { ...state, tasks: updatedTasks };
   }),
 
-  addCareRecord: (record) => {
-    setDoc(doc(db, 'careRecords', record.id), record).catch(console.error);
-    set((state) => ({ careRecords: [record, ...state.careRecords] }));
+  addCareRecord: async (record) => {
+    
+    try {
+      const res = await fetch('/api/care_records', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify(record)
+      });
+      if (!res.ok) throw new Error('API Sync Failed');
+      set((state) => ({ careRecords: [record, ...state.careRecords] }));
+    
+    } catch(e) {
+      toast.error('操作失败: ' + e.message);
+      console.error('Failed to sync addCareRecord', e);
+    }
   },
 
-  bindIoTDevice: (device) => {
-    setDoc(doc(db, 'iotDevices', device.id), device).catch(console.error);
-    set((state) => ({ iotDevices: [device, ...state.iotDevices] }));
+  bindIoTDevice: async (device) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      const res = await fetch('/api/iot_devices', { method: 'POST', headers, body: JSON.stringify(device) });
+      if (!res.ok) throw new Error('API Sync Failed');
+      set((state) => ({ iotDevices: [device, ...state.iotDevices] }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
   },
 
-  setCareLevels: (levels) => {
-    levels.forEach(level => setDoc(doc(db, 'careLevels', level.id), level).catch(console.error));
-    set({ careLevels: levels });
+  addCareLevel: async (cl) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch('/api/care_levels', { method: 'POST', headers, body: JSON.stringify(cl) });
+      set((state) => ({ careLevels: [...state.careLevels, cl] }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
   },
-  setServiceItems: (items) => {
-    items.forEach(item => setDoc(doc(db, 'serviceItems', item.id), item).catch(console.error));
-    set({ serviceItems: items });
+  updateCareLevel: async (id, updated) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/care_levels/${id}`, { method: 'PUT', headers, body: JSON.stringify(updated) });
+      set((state) => ({ careLevels: state.careLevels.map(c => c.id === id ? { ...c, ...updated } : c) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
   },
-
-  addAssessment: (assessment) => {
-    setDoc(doc(db, 'assessments', assessment.id), assessment).catch(console.error);
-    set((state) => ({ assessments: [assessment, ...state.assessments] }));
-  },
-  updateAssessment: (id, updates) => {
-    updateDoc(doc(db, 'assessments', id), updates).catch(console.error);
-    set((state) => ({ assessments: state.assessments.map(a => a.id === id ? { ...a, ...updates } : a) }));
-  },
-
-  addBuilding: (building) => {
-    setDoc(doc(db, 'buildings', building.id), building).catch(console.error);
-    set((state) => ({ buildings: [...state.buildings, building] }));
-  },
-  updateBuilding: (id, updated) => {
-    updateDoc(doc(db, 'buildings', id), updated).catch(console.error);
-    set((state) => ({ buildings: state.buildings.map(b => b.id === id ? { ...b, ...updated } : b) }));
-  },
-  removeBuilding: (id) => {
-    deleteDoc(doc(db, 'buildings', id)).catch(console.error);
-    set((state) => ({ buildings: state.buildings.filter(b => b.id !== id) }));
+  removeCareLevel: async (id) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/care_levels/${id}`, { method: 'DELETE', headers });
+      set((state) => ({ careLevels: state.careLevels.filter(c => c.id !== id) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
   },
 
-  addFloor: (floor) => {
-    setDoc(doc(db, 'floors', floor.id), floor).catch(console.error);
-    set((state) => ({ floors: [...state.floors, floor] }));
+  addServiceItem: async (si) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch('/api/service_items', { method: 'POST', headers, body: JSON.stringify(si) });
+      set((state) => ({ serviceItems: [...state.serviceItems, si] }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
   },
-  updateFloor: (id, updated) => {
-    updateDoc(doc(db, 'floors', id), updated).catch(console.error);
-    set((state) => ({ floors: state.floors.map(f => f.id === id ? { ...f, ...updated } : f) }));
+  updateServiceItem: async (id, updated) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/service_items/${id}`, { method: 'PUT', headers, body: JSON.stringify(updated) });
+      set((state) => ({ serviceItems: state.serviceItems.map(s => s.id === id ? { ...s, ...updated } : s) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
   },
-  removeFloor: (id) => {
-    deleteDoc(doc(db, 'floors', id)).catch(console.error);
-    set((state) => ({ floors: state.floors.filter(f => f.id !== id) }));
+  removeServiceItem: async (id) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/service_items/${id}`, { method: 'DELETE', headers });
+      set((state) => ({ serviceItems: state.serviceItems.filter(s => s.id !== id) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  
+  saveNursingStation: async (station) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      const existing = useStore.getState().nursingStations.find(s => s.id === station.id);
+      if (existing) {
+         await fetch(`/api/nursing_stations/${station.id}`, { method: 'PUT', headers, body: JSON.stringify(station) });
+         set(state => ({ nursingStations: state.nursingStations.map(s => s.id === station.id ? station : s) }));
+      } else {
+         await fetch('/api/nursing_stations', { method: 'POST', headers, body: JSON.stringify(station) });
+         set(state => ({ nursingStations: [...state.nursingStations, station] }));
+      }
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  
+  removeNursingStation: async (id) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/nursing_stations/${id}`, { method: 'DELETE', headers });
+      set((state) => ({ nursingStations: state.nursingStations.filter(s => s.id !== id) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  
+  addTransaction: async (tx) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch('/api/transactions', { method: 'POST', headers, body: JSON.stringify(tx) });
+      set(state => ({ transactions: [tx, ...state.transactions] }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  
+  saveSchedule: async (schedule) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      const existing = useStore.getState().schedules.find(s => s.id === schedule.id);
+      if (existing) {
+        await fetch(`/api/schedules/${schedule.id}`, { method: 'PUT', headers, body: JSON.stringify(schedule) });
+        set(state => ({ schedules: state.schedules.map(s => s.id === schedule.id ? schedule : s) }));
+      } else {
+        await fetch('/api/schedules', { method: 'POST', headers, body: JSON.stringify(schedule) });
+        set(state => ({ schedules: [...state.schedules, schedule] }));
+      }
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
   },
 
-  addRoom: (room) => {
-    setDoc(doc(db, 'rooms', room.id), room).catch(console.error);
-    set((state) => ({ rooms: [...state.rooms, room] }));
+  addAssessment: async (assessment) => {
+    try {
+       const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+       await fetch('/api/assessments', { method: 'POST', headers, body: JSON.stringify(assessment) });
+       set(state => ({ assessments: [assessment, ...state.assessments] }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
   },
-  updateRoom: (id, updated) => {
-    updateDoc(doc(db, 'rooms', id), updated).catch(console.error);
-    set((state) => ({ rooms: state.rooms.map(r => r.id === id ? { ...r, ...updated } : r) }));
-  },
-  removeRoom: (id) => {
-    deleteDoc(doc(db, 'rooms', id)).catch(console.error);
-    set((state) => ({ rooms: state.rooms.filter(r => r.id !== id) }));
-  },
-
-  addRoomType: (rt) => {
-    setDoc(doc(db, 'roomTypes', rt.id), rt).catch(console.error);
-    set((state) => ({ roomTypes: [...state.roomTypes, rt] }));
-  },
-  updateRoomType: (id, updated) => {
-    updateDoc(doc(db, 'roomTypes', id), updated).catch(console.error);
-    set((state) => ({ roomTypes: state.roomTypes.map(t => t.id === id ? { ...t, ...updated } : t) }));
-  },
-  removeRoomType: (id) => {
-    deleteDoc(doc(db, 'roomTypes', id)).catch(console.error);
-    set((state) => ({ roomTypes: state.roomTypes.filter(t => t.id !== id) }));
+  updateAssessment: async (id, updates) => {
+    try {
+       const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+       await fetch(`/api/assessments/${id}`, { method: 'PUT', headers, body: JSON.stringify(updates) });
+       set(state => ({ assessments: state.assessments.map(a => a.id === id ? { ...a, ...updates } : a) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
   },
 
-  addSysUser: (user) => {
-    setDoc(doc(db, 'sysUsers', user.id), user).catch(console.error);
-    set((state) => ({ sysUsers: [...state.sysUsers, user] }));
+  addBuilding: async (building) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch('/api/buildings', { method: 'POST', headers, body: JSON.stringify(building) });
+      set((state) => ({ buildings: [...state.buildings, building] }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
   },
-  updateSysUser: (id, updated) => {
-    updateDoc(doc(db, 'sysUsers', id), updated).catch(console.error);
-    set((state) => ({ sysUsers: state.sysUsers.map(u => u.id === id ? { ...u, ...updated } : u) }));
+  updateBuilding: async (id, updated) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/buildings/${id}`, { method: 'PUT', headers, body: JSON.stringify(updated) });
+      set((state) => ({ buildings: state.buildings.map(b => b.id === id ? { ...b, ...updated } : b) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
   },
-  removeSysUser: (id) => {
-    deleteDoc(doc(db, 'sysUsers', id)).catch(console.error);
-    set((state) => ({ sysUsers: state.sysUsers.filter(u => u.id !== id) }));
+  removeBuilding: async (id) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/buildings/${id}`, { method: 'DELETE', headers });
+      set((state) => ({ buildings: state.buildings.filter(b => b.id !== id) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
   },
 
-  addSysRole: (role) => {
-    setDoc(doc(db, 'sysRoles', role.id), role).catch(console.error);
-    set((state) => ({ sysRoles: [...state.sysRoles, role] }));
+  addFloor: async (floor) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch('/api/floors', { method: 'POST', headers, body: JSON.stringify(floor) });
+      set((state) => ({ floors: [...state.floors, floor] }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
   },
-  updateSysRole: (id, updated) => {
-    updateDoc(doc(db, 'sysRoles', id), updated).catch(console.error);
-    set((state) => ({ sysRoles: state.sysRoles.map(r => r.id === id ? { ...r, ...updated } : r) }));
+  updateFloor: async (id, updated) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/floors/${id}`, { method: 'PUT', headers, body: JSON.stringify(updated) });
+      set((state) => ({ floors: state.floors.map(f => f.id === id ? { ...f, ...updated } : f) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
   },
-  removeSysRole: (id) => {
-    deleteDoc(doc(db, 'sysRoles', id)).catch(console.error);
-    set((state) => ({ sysRoles: state.sysRoles.filter(r => r.id !== id) }));
+  removeFloor: async (id) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/floors/${id}`, { method: 'DELETE', headers });
+      set((state) => ({ floors: state.floors.filter(f => f.id !== id) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+
+  addRoom: async (room) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch('/api/rooms', { method: 'POST', headers, body: JSON.stringify(room) });
+      set((state) => ({ rooms: [...state.rooms, room] }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  updateRoom: async (id, updated) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/rooms/${id}`, { method: 'PUT', headers, body: JSON.stringify(updated) });
+      set((state) => ({ rooms: state.rooms.map(r => r.id === id ? { ...r, ...updated } : r) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  removeRoom: async (id) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/rooms/${id}`, { method: 'DELETE', headers });
+      set((state) => ({ rooms: state.rooms.filter(r => r.id !== id) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+
+  addRoomType: async (rt) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch('/api/room_types', { method: 'POST', headers, body: JSON.stringify(rt) });
+      set((state) => ({ roomTypes: [...state.roomTypes, rt] }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  updateRoomType: async (id, updated) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/room_types/${id}`, { method: 'PUT', headers, body: JSON.stringify(updated) });
+      set((state) => ({ roomTypes: state.roomTypes.map(t => t.id === id ? { ...t, ...updated } : t) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  removeRoomType: async (id) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/room_types/${id}`, { method: 'DELETE', headers });
+      set((state) => ({ roomTypes: state.roomTypes.filter(t => t.id !== id) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+
+  addSysUser: async (user) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      const res = await fetch('/api/sys_users', { method: 'POST', headers, body: JSON.stringify(user) });
+      if (res.ok) {
+        const created = await res.json();
+        set((state) => ({ sysUsers: [...state.sysUsers, created] }));
+      }
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  updateSysUser: async (id, updated) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/sys_users/${id}`, { method: 'PUT', headers, body: JSON.stringify(updated) });
+      set((state) => ({ sysUsers: state.sysUsers.map(u => u.id === id ? { ...u, ...updated } : u) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  removeSysUser: async (id) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/sys_users/${id}`, { method: 'DELETE', headers });
+      set((state) => ({ sysUsers: state.sysUsers.filter(u => u.id !== id) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+
+  addSysRole: async (role) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch('/api/sys_roles', { method: 'POST', headers, body: JSON.stringify(role) });
+      set((state) => ({ sysRoles: [...state.sysRoles, role] }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  updateSysRole: async (id, updated) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/sys_roles/${id}`, { method: 'PUT', headers, body: JSON.stringify(updated) });
+      set((state) => ({ sysRoles: state.sysRoles.map(r => r.id === id ? { ...r, ...updated } : r) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  removeSysRole: async (id) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/sys_roles/${id}`, { method: 'DELETE', headers });
+      set((state) => ({ sysRoles: state.sysRoles.filter(r => r.id !== id) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+
+  addCustomerArchive: async (archive) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch('/api/customer_archives', { method: 'POST', headers, body: JSON.stringify(archive) });
+      set((state) => ({ customerArchives: [...state.customerArchives, archive] }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  updateCustomerArchive: async (id, updated) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/customer_archives/${id}`, { method: 'PUT', headers, body: JSON.stringify(updated) });
+      set((state) => ({ customerArchives: state.customerArchives.map(a => a.id === id ? { ...a, ...updated } : a) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  removeCustomerArchive: async (id) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/customer_archives/${id}`, { method: 'DELETE', headers });
+      set((state) => ({ customerArchives: state.customerArchives.filter(a => a.id !== id) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+
+  addAgreement: async (agreement) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch('/api/agreements', { method: 'POST', headers, body: JSON.stringify(agreement) });
+      set((state) => ({ agreements: [...state.agreements, agreement] }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  updateAgreement: async (id, updated) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/agreements/${id}`, { method: 'PUT', headers, body: JSON.stringify(updated) });
+      set((state) => ({ agreements: state.agreements.map(a => a.id === id ? { ...a, ...updated } : a) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  removeAgreement: async (id) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/agreements/${id}`, { method: 'DELETE', headers });
+      set((state) => ({ agreements: state.agreements.filter(a => a.id !== id) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+
+  addInventoryAudit: async (audit) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch('/api/inventory_audits', { method: 'POST', headers, body: JSON.stringify(audit) });
+      set((state) => ({ inventoryAudits: [...state.inventoryAudits, audit] }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  updateInventoryAudit: async (id, updated) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/inventory_audits/${id}`, { method: 'PUT', headers, body: JSON.stringify(updated) });
+      set((state) => ({ inventoryAudits: state.inventoryAudits.map(a => a.id === id ? { ...a, ...updated } : a) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  removeInventoryAudit: async (id) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/inventory_audits/${id}`, { method: 'DELETE', headers });
+      set((state) => ({ inventoryAudits: state.inventoryAudits.filter(a => a.id !== id) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+
+  updateAdmission: async (id, record) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/admissions/${id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(record)
+      });
+      set(state => ({ admissions: state.admissions.map(a => a.id === id ? { ...a, ...record } : a) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  addAdmission: async (record) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      const res = await fetch(`/api/admissions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(record)
+      });
+      if (res.ok) {
+        const created = await res.json();
+        set(state => ({ admissions: [created, ...state.admissions] }));
+      } else {
+        throw new Error('API Sync Failed');
+      }
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  updateDischarge: async (id, record) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/discharges/${id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(record)
+      });
+      set(state => ({ discharges: state.discharges.map(a => a.id === id ? { ...a, ...record } : a) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  addDischarge: async (record) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      const res = await fetch(`/api/discharges`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(record)
+      });
+      if (res.ok) {
+        const created = await res.json();
+        set(state => ({ discharges: [created, ...state.discharges] }));
+      } else {
+        throw new Error('API Sync Failed');
+      }
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  updateBillStatus: async (id, status) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/bills/${id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ status })
+      });
+      set(state => ({ bills: state.bills.map(b => b.id === id ? { ...b, status } : b) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  addBill: async (bill) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      const res = await fetch(`/api/bills`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(bill)
+      });
+      if (res.ok) {
+        const created = await res.json();
+        set(state => ({ bills: [created, ...state.bills] }));
+      } else {
+        throw new Error('API Sync Failed');
+      }
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  updateBill: async (id, updates) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/bills/${id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updates)
+      });
+      set(state => ({ bills: state.bills.map(b => b.id === id ? { ...b, ...updates } : b) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  updateInsuranceClaimStatus: async (id, status) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      await fetch(`/api/insurance_claims/${id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ status })
+      });
+      set(state => ({ insuranceClaims: state.insuranceClaims.map(b => b.id === id ? { ...b, status } : b) }));
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  addInsuranceClaim: async (claim) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      const res = await fetch(`/api/insurance_claims`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(claim)
+      });
+      if (res.ok) {
+        const created = await res.json();
+        set(state => ({ insuranceClaims: [created, ...state.insuranceClaims] }));
+      } else {
+        throw new Error('API Sync Failed');
+      }
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
+  },
+  updateInventory: async (id, updates) => {
+    try {
+      const res = await fetch(`/api/inventory/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify(updates)
+      });
+      if (!res.ok) throw new Error('API Sync Failed');
+      set((state) => ({
+        inventory: state.inventory.map(m => m.id === id ? { ...m, ...updates, lastUpdate: new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) } : m)
+      }));
+    } catch(e) {
+      toast.error('操作失败: ' + e.message);
+      console.error('Failed to sync updateInventory', e);
+    }
+  },
+
+  addCarePlan: async (plan) => {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' };
+      const res = await fetch(`/api/care_plans`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(plan)
+      });
+      if (res.ok) {
+        set(state => ({ carePlans: [plan, ...state.carePlans] }));
+      }
+    } catch(e) { toast.error('操作失败: ' + e.message); console.error(e); }
   },
 
   fetchInitialData: async () => {
     try {
-      const [eldersRes, tasksRes, alertsRes] = await Promise.all([
-        fetch('/api/elders'),
-        fetch('/api/tasks'),
-        fetch('/api/alerts')
-      ]);
-      if (eldersRes.ok) {
-        const elders = await eldersRes.json();
-        set({ elders });
-      }
-      if (tasksRes.ok) {
-        const tasks = await tasksRes.json();
-        set({ tasks });
-      }
-      if (alertsRes.ok) {
-        const alerts = await alertsRes.json();
-        set({ alerts });
-      }
-    } catch (e) {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}` };
+      
+      const fetchApiList = async (path: string) => {
+        const res = await fetch(path, { headers });
+        if (!res.ok) {
+          throw new Error(`加载数据失败: ${path} (Status: ${res.status})`);
+        }
+        let data = await res.json();
+        if (Array.isArray(data)) {
+          // Coerce numeric types from DB back to Javascript numbers for frontend safety
+          data = data.map(item => {
+             const r = { ...item };
+             ['total', 'amount', 'price', 'refundAmount', 'totalAmount', 'totalRefund'].forEach(f => {
+                if (typeof r[f] === 'string' && !isNaN(Number(r[f].replace(/,/g, '')))) {
+                   r[f] = Number(r[f].replace(/,/g, ''));
+                }
+             });
+             return r;
+          });
+          return data;
+        }
+        return [];
+      };
+
+      const promises = [
+        fetchApiList('/api/elders'),
+        fetchApiList('/api/staff'),
+        fetchApiList('/api/beds'),
+        fetchApiList('/api/tasks'),
+        fetchApiList('/api/alerts'),
+        fetchApiList('/api/care_records'),
+        fetchApiList('/api/rehab_plans'),
+        fetchApiList('/api/rounds'),
+        fetchApiList('/api/inventory'),
+        fetchApiList('/api/admissions'),
+        fetchApiList('/api/discharges'),
+        fetchApiList('/api/bills'),
+        fetchApiList('/api/insurance_claims'),
+        fetchApiList('/api/sys_users'),
+        fetchApiList('/api/sys_roles'),
+        fetchApiList('/api/iot_devices'),
+        fetchApiList('/api/care_plans'),
+        fetchApiList('/api/assessments'),
+        fetchApiList('/api/schedules'),
+        fetchApiList('/api/transactions'),
+        fetchApiList('/api/buildings'),
+        fetchApiList('/api/floors'),
+        fetchApiList('/api/rooms'),
+        fetchApiList('/api/room_types'),
+        fetchApiList('/api/care_levels'),
+        fetchApiList('/api/service_items'),
+        fetchApiList('/api/nursing_stations'),
+        fetchApiList('/api/customer_archives'),
+        fetchApiList('/api/agreements'),
+        fetchApiList('/api/inventory_audits')
+      ];
+
+      const [elders, staff, beds, tasks, alerts, careRecords, rehabPlans, rounds, inventory, admissions, discharges, bills, insuranceClaims, sysUsers, sysRoles, iotDevices, carePlans, assessments, schedules, transactions, buildings, floors, rooms, roomTypes, careLevels, serviceItems, nursingStations, customerArchives, agreements, inventoryAudits] = await Promise.all(promises);
+
+      // Don't re-fill mock fallbacks empty for dictionary tables
+      const nS = nursingStations.length > 0 ? nursingStations : [];
+      const bD = buildings.length > 0 ? buildings : [];
+      const fL = floors.length > 0 ? floors : [];
+      const rM = rooms.length > 0 ? rooms : [];
+      const rT = roomTypes.length > 0 ? roomTypes : [];
+      
+      set({ elders, staff, beds, tasks, alerts, careRecords, rehabPlans, rounds, inventory, admissions, discharges, bills, insuranceClaims, sysUsers, sysRoles, iotDevices, carePlans, assessments, schedules, transactions, buildings: bD, floors: fL, rooms: rM, roomTypes: rT, careLevels: careLevels, serviceItems: serviceItems, nursingStations: nS, customerArchives, agreements, inventoryAudits });
+    } catch (e: any) {
       console.error('Failed to load initial data from backend', e);
+      toast.error(e.message || '加载初始数据失败，请检查网络或登录状态');
     }
   }
 }));

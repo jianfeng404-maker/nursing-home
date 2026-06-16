@@ -1,11 +1,16 @@
 import { useState } from "react";
 import { Card, CardContent } from "../components/ui/card";
 import { Search, Plus, Filter, FileText, Clock, CalendarDays, Calculator, X } from "lucide-react";
+import { useStore } from "../store";
+import { toast } from "sonner";
 
 export function ContractManage() {
   const [activeTab, setActiveTab] = useState('active');
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  const addBill = useStore(state => state.addBill);
+  const elders = useStore(state => state.elders);
 
   const [contracts, setContracts] = useState([
     {
@@ -51,9 +56,12 @@ export function ContractManage() {
   const handleSaveContract = () => {
     if (!newContract.elder || !newContract.startDate || !newContract.endDate) return;
 
+    // Use full list of elders or fallback
+    const elderObj = elders.find(e => e.id === newContract.elder) || { name: newContract.elder === "1" ? "新长者A" : "新长者B" };
+
     const c = {
       id: `HT-${newContract.startDate.replace(/-/g, '')}-00${contracts.length + 1}`,
-      elderName: newContract.elder === "1" ? "新长者A" : "新长者B",
+      elderName: elderObj.name,
       bed: newContract.bed,
       startDate: newContract.startDate,
       endDate: newContract.endDate,
@@ -67,6 +75,26 @@ export function ContractManage() {
     };
 
     setContracts([c, ...contracts]);
+    
+    // Add bill
+    addBill({
+      id: `BILL-INT-${new Date().toISOString().replace(/\D/g, '').slice(0, 8)}-${Math.floor(Math.random() * 90 + 10)}`,
+      elder: c.elderName,
+      room: c.bed,
+      period: "合同签约及首期缴费",
+      dueDate: newContract.startDate,
+      status: "未缴费",
+      total: c.total + 5000, // 包含首月费用 + 押金 5000
+      items: [
+        { name: "首月床位费", amount: c.bedFee.toString(), type: "cycle" },
+        { name: "首月护理费", amount: c.careFee.toString(), type: "cycle" },
+        { name: "首月餐饮费", amount: c.mealFee.toString(), type: "cycle" },
+        { name: "入住医疗保证金（押金）", amount: "5000", type: "deposit" }
+      ]
+    });
+    
+    toast.success("入住合同已生成，计费引擎已自动激活，并同步生成押金及首期账单待缴");
+
     setShowAddModal(false);
   };
 

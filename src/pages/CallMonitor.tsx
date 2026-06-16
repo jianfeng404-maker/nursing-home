@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader } from "../components/ui/card";
-import { Phone, Users, Clock, History, UserPlus, PhoneCall, PhoneOff, Mic, MicOff, User, PhoneIncoming, FileText, PauseCircle, PhoneForwarded } from "lucide-react";
+import { Phone, Users, Clock, History, UserPlus, PhoneCall, PhoneOff, Mic, MicOff, User, PhoneIncoming, FileText, PauseCircle, PhoneForwarded, Sparkles, Loader2, CheckCircle2 } from "lucide-react";
 
 export function CallMonitor() {
   const [status, setStatus] = useState<'idle' | 'ringing' | 'connected' | 'wrapup'>('idle');
@@ -217,31 +217,27 @@ export function CallMonitor() {
                   </div>
                </div>
 
-               {/* 业务操作区 */}
+               {/* 业务操作区 & AI实录多栏 */}
                <div className="flex-1 flex overflow-hidden">
-                  <div className="flex-1 p-6 overflow-y-auto">
+                  <div className="flex-1 p-6 overflow-y-auto border-r border-slate-200">
                      <h3 className="font-bold text-slate-800 mb-4 text-lg">快速业务办理</h3>
-                     <div className="grid grid-cols-2 gap-4 mb-8">
-                       <button className="bg-white p-4 rounded-xl border border-slate-200 text-left hover:border-blue-400 hover:shadow-md transition group">
+                     <div className="flex flex-col gap-3 mb-8">
+                       <button className="bg-white p-3 rounded-xl border border-slate-200 text-left hover:border-blue-400 hover:shadow-md transition group">
                           <h4 className="font-bold text-blue-700 mb-1 group-hover:text-blue-800">创建工单 / 投诉报修</h4>
                           <p className="text-xs text-slate-500">为客户建立追踪工单，派发至相关部门</p>
                        </button>
-                       <button className="bg-white p-4 rounded-xl border border-slate-200 text-left hover:border-indigo-400 hover:shadow-md transition group">
+                       <button className="bg-white p-3 rounded-xl border border-slate-200 text-left hover:border-indigo-400 hover:shadow-md transition group">
                           <h4 className="font-bold text-indigo-700 mb-1 group-hover:text-indigo-800">转接照护员 / 护士台</h4>
                           <p className="text-xs text-slate-500">将电话移交给具体执行人员</p>
                        </button>
-                       <button className="bg-white p-4 rounded-xl border border-slate-200 text-left hover:border-emerald-400 hover:shadow-md transition group">
+                       <button className="bg-white p-3 rounded-xl border border-slate-200 text-left hover:border-emerald-400 hover:shadow-md transition group">
                           <h4 className="font-bold text-emerald-700 mb-1 group-hover:text-emerald-800">查询健康数据 / 报表</h4>
                           <p className="text-xs text-slate-500">回答家属关于长者近况的咨询</p>
-                       </button>
-                       <button className="bg-white p-4 rounded-xl border border-slate-200 text-left hover:border-amber-400 hover:shadow-md transition group">
-                          <h4 className="font-bold text-amber-700 mb-1 group-hover:text-amber-800">咨询费用 / 账单对账</h4>
-                          <p className="text-xs text-slate-500">解答计费、充值等财务相关问题</p>
                        </button>
                      </div>
 
                      <h3 className="font-bold text-slate-800 mb-4 text-lg">呼叫小结 (服务工单)</h3>
-                     <div className="bg-white p-5 rounded-xl border border-slate-200">
+                     <div className="bg-white p-4 rounded-xl border border-slate-200">
                        <div className="grid grid-cols-2 gap-4 mb-4">
                          <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">呼叫类型 *</label>
@@ -258,9 +254,77 @@ export function CallMonitor() {
                          </div>
                        </div>
                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">沟通纪要 *</label>
-                          <textarea rows={4} className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="记录本次通话的核心诉求及处理结果..."></textarea>
+                          <div className="flex justify-between items-center mb-1">
+                             <label className="block text-sm font-medium text-slate-700">沟通纪要 *</label>
+                             <button className="text-xs text-indigo-600 font-bold hover:text-indigo-800 flex items-center gap-1">
+                               <Sparkles className="w-3 h-3" /> 一键提取总结
+                             </button>
+                          </div>
+                          <textarea rows={4} className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="点击右上角使用AI从实时通话中提取纪要，或手动输入..."></textarea>
                        </div>
+                     </div>
+                  </div>
+
+                  {/* 中间区：AI实时语音转写及质检 */}
+                  <div className="w-[320px] bg-[#f8fafc] border-r border-slate-200 flex flex-col pt-1">
+                     <div className="px-5 py-3 border-b border-indigo-100 flex items-center justify-between bg-indigo-50/50">
+                        <h3 className="font-bold text-indigo-800 flex items-center gap-2">
+                           <Mic className="w-4 h-4" /> AI 实时旁听与品控
+                        </h3>
+                        {status === 'connected' ? (
+                           <span className="flex h-2 w-2 relative">
+                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                             <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                           </span>
+                        ) : (
+                           <span className="w-2 h-2 rounded-full bg-slate-300"></span>
+                        )}
+                     </div>
+                     <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 font-mono text-xs">
+                        {status === 'idle' || status === 'ringing' ? (
+                           <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-3 opacity-60">
+                              <MicOff className="w-8 h-8" />
+                              <p>等待通话接通注入语音流...</p>
+                           </div>
+                        ) : (
+                           <>
+                             <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm self-start max-w-[90%]">
+                                <span className="font-bold text-amber-600 block mb-1">客户:</span>
+                                <p className="text-slate-600 leading-relaxed">喂你好，那个张明宇老人的被子感觉有点薄了，昨天他说晚上有点凉。</p>
+                             </div>
+                             <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-100 shadow-sm self-end max-w-[90%]">
+                                <span className="font-bold text-indigo-700 block mb-1">座席 (您):</span>
+                                <p className="text-slate-700 leading-relaxed">张先生您好，我是本站客服。给您添麻烦了，这几天寒流降温，我们记录下来马上安排本楼栋护工去给老爷子加一床冬被。</p>
+                             </div>
+                             <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm self-start max-w-[90%]">
+                                <span className="font-bold text-amber-600 block mb-1">客户:</span>
+                                <p className="text-slate-600 leading-relaxed">好的好的，另外就是下个月的账单你们出了没有？</p>
+                             </div>
+                             <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-100 shadow-sm self-end max-w-[90%]">
+                                <span className="font-bold text-indigo-700 block mb-1">座席 (您):</span>
+                                <p className="text-slate-700 leading-relaxed">已经出了，稍后系统会给您微信和短信发送推送，您可以直接在小程序里面支付的。</p>
+                             </div>
+                             <div className="flex items-center gap-2 mt-2 ml-1">
+                                <Loader2 className="w-3 h-3 text-indigo-400 animate-spin" />
+                                <span className="text-slate-400">正在实时转译...</span>
+                             </div>
+                           </>
+                        )}
+                     </div>
+                     <div className="p-4 border-t border-slate-100 bg-white">
+                        <h4 className="font-bold text-slate-800 text-xs mb-2 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-500" /> AI 服务规范质检
+                        </h4>
+                        <div className="space-y-1.5">
+                           <div className="flex justify-between items-center bg-emerald-50 text-emerald-800 px-3 py-1.5 rounded text-xs font-medium">
+                              <span>开场尊称及情绪安抚</span>
+                              <span className="text-emerald-500 font-black">✓ PASS</span>
+                           </div>
+                           <div className="flex justify-between items-center bg-slate-100 text-slate-600 px-3 py-1.5 rounded text-xs font-medium">
+                              <span>主动询问其他需求</span>
+                              <span className="text-slate-400">待检测...</span>
+                           </div>
+                        </div>
                      </div>
                   </div>
                   

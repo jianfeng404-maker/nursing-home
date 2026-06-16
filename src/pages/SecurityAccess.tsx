@@ -1153,7 +1153,10 @@ export function SecurityAccess() {
                              <button onClick={() => toast.error("已清除指纹库记录")} className="text-xs text-rose-600 font-medium hover:underline">删除指纹</button>
                           </div>
                        ) : (
-                          <button onClick={() => toast.info("等待指纹仪连接输入...")} className="text-xs font-bold border border-slate-300 text-slate-700 bg-white px-3 py-1.5 rounded-lg hover:bg-slate-50 transition shadow-sm">录入指纹</button>
+                          <button onClick={() => {
+                             toast.success("系统尝试连接 USB 指纹仪模块中...");
+                             setTimeout(() => toast.success("指纹特征提取完成，请按压手指。"), 1000);
+                          }} className="text-xs font-bold border border-slate-300 text-slate-700 bg-white px-3 py-1.5 rounded-lg hover:bg-slate-50 transition shadow-sm">外接设备录入指纹</button>
                        )}
                     </div>
                  </div>

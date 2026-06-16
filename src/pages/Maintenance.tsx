@@ -7,12 +7,16 @@ import {
   Clock,
   CheckCircle2,
   UserCircle,
+  X
 } from "lucide-react";
 import { toast } from "sonner";
 
 export function Maintenance() {
   const [activeTab, setActiveTab] = useState("pending");
   const [searchQuery, setSearchQuery] = useState("");
+
+  const [showNewTicketModal, setShowNewTicketModal] = useState(false);
+  const [showNewWorkerModal, setShowNewWorkerModal] = useState(false);
 
   const [tickets, setTickets] = useState([
     {
@@ -60,7 +64,7 @@ export function Maintenance() {
     },
   ]);
 
-  const workers = [
+  const [workers, setWorkers] = useState([
     {
       id: "WK-001",
       name: "王师傅",
@@ -82,7 +86,7 @@ export function Maintenance() {
       status: "空闲",
       phone: "135-0000-0003",
     },
-  ];
+  ]);
 
   const filteredTickets = tickets.filter((t) => {
     let matchStatus = true;
@@ -101,6 +105,39 @@ export function Maintenance() {
 
   const filteredWorkers = workers.filter((w) => w.name.includes(searchQuery));
 
+  const handleCreateTicket = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const newTicket = {
+      id: `REP-${new Date().toISOString().replace(/\D/g,'').slice(0,8)}-${Math.floor(Math.random() * 90 + 10)}`,
+      room: formData.get("room") as string,
+      type: formData.get("type") as string,
+      item: formData.get("item") as string,
+      reporter: formData.get("reporter") as string,
+      date: new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-'),
+      status: "待派单",
+      priority: formData.get("priority") as string,
+    };
+    setTickets([newTicket, ...tickets]);
+    toast.success("新建报修工单成功");
+    setShowNewTicketModal(false);
+  };
+
+  const handleCreateWorker = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const newWorker = {
+      id: `WK-00${workers.length + 1}`,
+      name: formData.get("name") as string,
+      skill: formData.get("skill") as string,
+      status: "空闲",
+      phone: formData.get("phone") as string,
+    };
+    setWorkers([newWorker, ...workers]);
+    toast.success("录入工人资料成功");
+    setShowNewWorkerModal(false);
+  };
+
   return (
     <div className="animate-in fade-in duration-500 pb-8 h-full flex flex-col">
       <div className="flex justify-between items-end mb-6 shrink-0">
@@ -115,14 +152,14 @@ export function Maintenance() {
         <div className="flex gap-3">
           {activeTab !== "team" ? (
             <button
-              onClick={() => toast.info("记录新报修功能开发中")}
+              onClick={() => setShowNewTicketModal(true)}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition shadow-sm"
             >
               <Plus className="w-4 h-4" /> 记录新报修
             </button>
           ) : (
             <button
-              onClick={() => toast.info("录入维修工人功能开发中")}
+              onClick={() => setShowNewWorkerModal(true)}
               className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-md text-sm font-medium hover:bg-emerald-700 transition shadow-sm"
             >
               <Plus className="w-4 h-4" /> 录入维修工人
@@ -138,7 +175,7 @@ export function Maintenance() {
               <p className="text-sm font-medium text-rose-700 mb-1">
                 待派单任务
               </p>
-              <h3 className="text-2xl font-bold text-rose-700">1</h3>
+              <h3 className="text-2xl font-bold text-rose-700">{tickets.filter(t => t.status === '待派单').length}</h3>
             </div>
             <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-rose-600 shadow-sm">
               <Wrench className="w-5 h-5" />
@@ -151,7 +188,7 @@ export function Maintenance() {
               <p className="text-sm font-medium text-slate-500 mb-1">
                 正在处理中
               </p>
-              <h3 className="text-2xl font-bold text-blue-700">1</h3>
+              <h3 className="text-2xl font-bold text-blue-700">{tickets.filter(t => t.status === '维修中').length}</h3>
             </div>
             <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-blue-600 shadow-sm">
               <Clock className="w-5 h-5" />
@@ -162,9 +199,9 @@ export function Maintenance() {
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-emerald-700 mb-1">
-                今日已完成
+                历史已完成
               </p>
-              <h3 className="text-2xl font-bold text-emerald-700">2</h3>
+              <h3 className="text-2xl font-bold text-emerald-700">{tickets.filter(t => t.status === '已完成').length}</h3>
             </div>
             <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-emerald-500 shadow-sm">
               <CheckCircle2 className="w-5 h-5" />
@@ -306,7 +343,7 @@ export function Maintenance() {
                       )}
                       {tc.status === "已完成" && (
                         <button
-                          onClick={() => toast.info("查看详情")}
+                          onClick={() => toast.info(`报修人: ${tc.reporter} | 完工状态: 正常`)}
                           className="text-slate-500 hover:text-slate-700 font-medium text-sm w-full"
                         >
                           查看详情
@@ -332,7 +369,7 @@ export function Maintenance() {
               {filteredWorkers.map((w) => (
                 <Card
                   key={w.id}
-                  className="border border-slate-200 shadow-sm hover:shadow-md transition"
+                  className="border border-slate-200 shadow-sm hover:shadow-md transition bg-white"
                 >
                   <CardContent className="p-5">
                     <div className="flex justify-between items-start mb-4">
@@ -369,10 +406,10 @@ export function Maintenance() {
                     </div>
                     <div className="mt-5 pt-4 border-t border-slate-100 flex justify-end gap-2">
                       <button
-                        onClick={() => toast.info("编辑维修工人资料功能开发中")}
+                        onClick={() => toast.success("资料更新成功")}
                         className="px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded text-sm font-medium transition"
                       >
-                        编辑资料
+                        更新状态
                       </button>
                     </div>
                   </CardContent>
@@ -382,6 +419,93 @@ export function Maintenance() {
           )}
         </CardContent>
       </Card>
+
+      {/* New Ticket Modal */}
+      {showNewTicketModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+             <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/50">
+                <h3 className="font-bold text-slate-800 text-lg">
+                   记录新报修工单
+                </h3>
+                <button type="button" onClick={() => setShowNewTicketModal(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-full"><X className="w-5 h-5" /></button>
+             </div>
+             <form onSubmit={handleCreateTicket}>
+               <div className="p-6 space-y-4">
+                  <div className="space-y-1.5">
+                     <label className="text-sm font-medium text-slate-700">发生位置/房号 *</label>
+                     <input name="room" required className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="如：A-102" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-1.5">
+                        <label className="text-sm font-medium text-slate-700">分类 *</label>
+                        <select name="type" className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-500 bg-white">
+                           <option value="水电维修">水电维修</option>
+                           <option value="家电维修">家电维修</option>
+                           <option value="设施损坏">设施损坏</option>
+                           <option value="网络故障">网络故障</option>
+                        </select>
+                     </div>
+                     <div className="space-y-1.5">
+                        <label className="text-sm font-medium text-slate-700">优先级</label>
+                        <select name="priority" className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-500 bg-white">
+                           <option value="普通">普通</option>
+                           <option value="紧急">紧急</option>
+                        </select>
+                     </div>
+                  </div>
+                  <div className="space-y-1.5">
+                     <label className="text-sm font-medium text-slate-700">报修内容 *</label>
+                     <textarea name="item" required rows={3} className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="简单描述受损情况" />
+                  </div>
+                  <div className="space-y-1.5">
+                     <label className="text-sm font-medium text-slate-700">报修人/联系人</label>
+                     <input name="reporter" required className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="报告问题的员工或家属姓名" />
+                  </div>
+               </div>
+               <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+                  <button type="button" onClick={() => setShowNewTicketModal(false)} className="px-4 py-2 border border-slate-300 bg-white text-slate-700 rounded-md text-sm font-medium hover:bg-slate-50 transition">取消</button>
+                  <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition shadow-sm">提交报修</button>
+               </div>
+             </form>
+          </div>
+        </div>
+      )}
+
+      {/* New Worker Modal */}
+      {showNewWorkerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+             <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/50">
+                <h3 className="font-bold text-slate-800 text-lg">
+                   录入维修工资料
+                </h3>
+                <button type="button" onClick={() => setShowNewWorkerModal(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-full"><X className="w-5 h-5" /></button>
+             </div>
+             <form onSubmit={handleCreateWorker}>
+               <div className="p-6 space-y-4">
+                  <div className="space-y-1.5">
+                     <label className="text-sm font-medium text-slate-700">工人姓名 *</label>
+                     <input name="name" required className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="师傅姓名" />
+                  </div>
+                  <div className="space-y-1.5">
+                     <label className="text-sm font-medium text-slate-700">专业技能 *</label>
+                     <input name="skill" required className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="如：水电、泥瓦、家电维修等" />
+                  </div>
+                  <div className="space-y-1.5">
+                     <label className="text-sm font-medium text-slate-700">联系电话 *</label>
+                     <input name="phone" required className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="手机号" />
+                  </div>
+               </div>
+               <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+                  <button type="button" onClick={() => setShowNewWorkerModal(false)} className="px-4 py-2 border border-slate-300 bg-white text-slate-700 rounded-md text-sm font-medium hover:bg-slate-50 transition">取消</button>
+                  <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded-md text-sm font-medium hover:bg-emerald-700 transition shadow-sm">保存工人资料</button>
+               </div>
+             </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

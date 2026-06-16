@@ -44,9 +44,9 @@ export function ReceptionPipeline({ setActiveTab }: { setActiveTab?: (tab: strin
           <h2 className="text-3xl font-black text-slate-900 tracking-tight">接退住全生命周期工作台</h2>
           <span className="text-sm font-medium text-slate-500 mt-1.5 block">从初次接待到退住离院的全流程阶段管控</span>
         </div>
-        <div className="flex bg-white rounded-lg border border-slate-200 p-1 shadow-sm">
-           <button className="px-4 py-1.5 text-sm font-bold bg-slate-100 text-slate-800 rounded-md">面板视图</button>
-           <button className="px-4 py-1.5 text-sm font-bold text-slate-500 hover:text-slate-800">列表视图</button>
+        <div className="flex bg-white rounded-lg border border-slate-200 p-1 shadow-sm mt-3 sm:mt-0">
+           <button className="px-4 py-1.5 text-sm font-bold bg-slate-100 text-slate-800 rounded-md">看板视图 (当前)</button>
+           <button className="px-4 py-1.5 text-sm font-bold text-slate-500 hover:text-slate-800">阶段列表</button>
         </div>
       </div>
 

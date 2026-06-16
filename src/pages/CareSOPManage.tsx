@@ -13,7 +13,7 @@ const colorOptions = [
 ];
 
 const CareSOPManage = () => {
-  const { careLevels, serviceItems, setCareLevels, setServiceItems } = useStore();
+  const { careLevels, serviceItems, addCareLevel, updateCareLevel, removeCareLevel, addServiceItem, updateServiceItem, removeServiceItem } = useStore();
   
   const [selectedLevelId, setSelectedLevelId] = useState<string | null>(null);
   
@@ -65,11 +65,11 @@ const CareSOPManage = () => {
   const handleSaveLevel = () => {
     if (!levelForm.name) return alert('请输入护理等级名称');
     if (editingLevel) {
-      setCareLevels(careLevels.map(l => l.id === editingLevel.id ? { ...l, ...levelForm } : l));
+      updateCareLevel(editingLevel.id, levelForm);
     } else {
       const newId = `lvl-${Date.now()}`;
       const newLevel = { ...levelForm, id: newId };
-      setCareLevels([...careLevels, newLevel]);
+      addCareLevel(newLevel);
       setSelectedLevelId(newId);
     }
     setIsLevelModalOpen(false);
@@ -77,12 +77,16 @@ const CareSOPManage = () => {
 
   const handleDeleteLevel = (id: string) => {
     if (window.confirm('确定要删除此护理等级吗？')) {
-      setCareLevels(careLevels.filter(l => l.id !== id));
+      removeCareLevel(id);
       if (selectedLevelId === id) setSelectedLevelId(careLevels[0]?.id || null);
-      setServiceItems(serviceItems.map(svc => ({
-        ...svc,
-        includedIn: svc.includedIn.filter(lvlId => lvlId !== id)
-      })));
+      
+      serviceItems.forEach(svc => {
+         if (svc.includedIn.includes(id)) {
+            updateServiceItem(svc.id, {
+               includedIn: svc.includedIn.filter(lvlId => lvlId !== id)
+            });
+         }
+      });
     }
   };
 
@@ -103,10 +107,10 @@ const CareSOPManage = () => {
     const cleanedForm = { ...serviceForm, sopSteps: serviceForm.sopSteps.filter(step => step.trim() !== '') };
     
     if (editingService) {
-      setServiceItems(serviceItems.map(s => s.id === editingService.id ? { ...s, ...cleanedForm } : s));
+      updateServiceItem(editingService.id, cleanedForm);
     } else {
       const newService = { ...cleanedForm, id: `svc-${Date.now()}`, includedIn: selectedLevelId ? [selectedLevelId] : [] };
-      setServiceItems([...serviceItems, newService]);
+      addServiceItem(newService);
       setSelectedServiceId(newService.id);
       setIsLinkModalOpen(false); // Close link modal if it was opened from there
     }
@@ -115,7 +119,7 @@ const CareSOPManage = () => {
   
   const handleDeleteService = (id: string) => {
     if (window.confirm('确定要在全局删除此服务及SOP吗？该操作将影响所有关联的护理等级。')) {
-      setServiceItems(serviceItems.filter(s => s.id !== id));
+      removeServiceItem(id);
       setIsLinkModalOpen(false);
     }
   };
@@ -363,15 +367,10 @@ const CareSOPManage = () => {
                             className="w-4 h-4 text-blue-600 mt-1 cursor-pointer"
                             checked={isLinked}
                             onChange={(e) => {
-                               setServiceItems(serviceItems.map(s => {
-                                  if (s.id === svc.id) {
-                                     const included = e.target.checked 
-                                        ? [...s.includedIn, selectedLevel.id]
-                                        : s.includedIn.filter(id => id !== selectedLevel.id);
-                                     return { ...s, includedIn: included };
-                                  }
-                                  return s;
-                               }));
+                               const included = e.target.checked 
+                                  ? [...svc.includedIn, selectedLevel.id]
+                                  : svc.includedIn.filter((id: string) => id !== selectedLevel.id);
+                               updateServiceItem(svc.id, { includedIn: included });
                             }}
                           />
                           <label htmlFor={`link-${svc.id}`} className="ml-3 cursor-pointer flex-1 user-select-none">

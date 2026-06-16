@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { ChevronDown, ChevronRight, X } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { menuGroups } from "../../config/menus";
+import { menuGroups as baseMenuGroups, MenuGroup } from "../../config/menus";
+import { useStore } from "../../store";
 
 interface SidebarProps {
   activeTab: string;
@@ -11,6 +12,26 @@ interface SidebarProps {
 }
 
 export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarProps) {
+  const { nursingStations } = useStore();
+
+  const dynamicMenuGroups = useMemo(() => {
+    return baseMenuGroups.map(group => {
+      if (group.title === "工作台") {
+        return {
+          ...group,
+          items: [
+            ...group.items.filter(i => i.id !== 'nurse_station'),
+            ...nursingStations.map(ns => ({
+              id: `nurse_station_${ns.id}`,
+              label: `护理站: ${ns.name}`
+            }))
+          ]
+        };
+      }
+      return group;
+    });
+  }, [nursingStations]);
+
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     "工作台": true,
     "个人照护管理": true,
@@ -63,7 +84,7 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
         </div>
         
         <div className="flex-1 py-4 overflow-y-auto hidden-scrollbar">
-          {menuGroups.map((group, idx) => {
+          {dynamicMenuGroups.map((group, idx) => {
             const isExpanded = expandedGroups[group.title];
             const hasActiveItem = group.items.some(item => item.id === activeTab);
             

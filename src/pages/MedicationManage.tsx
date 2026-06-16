@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Card, CardContent } from "../components/ui/card";
 import { Search, Plus, Filter, Pill, CheckCircle2, AlertCircle, Clock, X, Check, FileText } from "lucide-react";
 import { useStore } from "../store";
+import { toast } from "sonner";
 
 export function MedicationManage() {
   const [activeTab, setActiveTab] = useState('upcoming');
@@ -21,6 +22,7 @@ export function MedicationManage() {
   const globalTasks = useStore(state => state.tasks);
   const updateTaskStatus = useStore(state => state.updateTaskStatus);
   const addTask = useStore(state => state.addTask);
+  const addBill = useStore(state => state.addBill);
 
   // Map global medical tasks to the format MedicationManage expects
   // We identify medical tasks by type === 'medical'
@@ -35,8 +37,8 @@ export function MedicationManage() {
       else if (hour >= 20) timePeriod = "night";
 
       // Parse elder and bed from "Name (Bed)" format
-      const elderName = t.elder.split(' (')[0] || t.elder;
-      const bed = t.elder.includes('(') ? t.elder.split('(')[1].replace(')', '') : '未知床位';
+      const elderName = t.elder ? t.elder.split(' (')[0] || t.elder : '未知';
+      const bed = t.elder && t.elder.includes('(') ? t.elder.split('(')[1].replace(')', '') : '未知床位';
 
       return {
         id: t.id,
@@ -606,6 +608,22 @@ export function MedicationManage() {
                       requirements: newOrderRequirements || "遵医嘱定时服用"
                     });
                   });
+                  
+                  // Optionally charge a dispensing agency fee or medical service fee
+                  addBill({
+                     id: `BILL-MED-${new Date().toISOString().replace(/\D/g, '').slice(0, 8)}-${Math.floor(Math.random() * 90 + 10)}`,
+                     elder: newOrderElder.split(' (')[0] || '未知',
+                     room: newOrderElder.split('(')[1]?.replace(')', '') || '未知',
+                     period: "代理配药与服药管理服务",
+                     dueDate: new Date().toISOString().split('T')[0],
+                     status: "未缴费",
+                     total: "60", // Mock fee
+                     items: [
+                       { name: "单次/周期代为配发医药服务费", amount: "60", type: "service" }
+                     ]
+                  });
+                  toast.success(`医嘱保存成功！已产生对应服药任务 ${newOrderTimes.length} 条，并自动生成药品管理服务费 ￥60。`);
+
                   setShowNewOrderModal(false);
                   setNewOrderMedications([{ name: '', frequency: '', dose: '' }]);
                   setNewOrderTimes(['12:00']);

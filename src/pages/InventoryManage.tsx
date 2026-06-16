@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader } from "../components/ui/card";
 import {
   Search,
@@ -6,67 +6,31 @@ import {
   AlertTriangle,
   ArrowDownToLine,
   RefreshCw,
+  X
 } from "lucide-react";
 import { toast } from "sonner";
+import { useStore } from "../store";
 
 export function InventoryManage() {
+  const { inventory: inventoryListRaw, inventoryAudits } = useStore();
   const [activeWarehouse, setActiveWarehouse] = useState("all");
+  const [showAuditModal, setShowAuditModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const inventoryList = [
-    {
-      id: "MAT-1001",
-      name: "医用外科口罩",
-      warehouse: "医疗库",
-      stock: 1500,
-      unit: "个",
-      safeStock: 2000,
-      val: "750.00",
-      lastUpdate: "今天 09:30",
-    },
-    {
-      id: "MAT-1002",
-      name: "无菌纱布块",
-      warehouse: "医疗库",
-      stock: 850,
-      unit: "包",
-      safeStock: 500,
-      val: "2,125.00",
-      lastUpdate: "昨天 14:20",
-    },
-    {
-      id: "MAT-2001",
-      name: "大米(东北珍宝岛)",
-      warehouse: "食品库",
-      stock: 50,
-      unit: "kg",
-      safeStock: 100,
-      val: "425.00",
-      lastUpdate: "2天前",
-    },
-    {
-      id: "MAT-3001",
-      name: "成人纸尿裤(L号)",
-      warehouse: "后勤库",
-      stock: 320,
-      unit: "包",
-      safeStock: 150,
-      val: "14,400.00",
-      lastUpdate: "今天 10:15",
-    },
-    {
-      id: "MAT-4001",
-      name: "消毒液(84/500ml)",
-      warehouse: "清洁库",
-      stock: 12,
-      unit: "瓶",
-      safeStock: 50,
-      val: "72.00",
-      lastUpdate: "3天前",
-    },
-  ];
+  const inventoryList = inventoryListRaw.map((r: any) => ({
+    id: r.id.toString(),
+    name: r.name,
+    warehouse: r.warehouse,
+    stock: r.stock,
+    unit: r.unit,
+    safeStock: r.safeStock,
+    val: (r.stock * 50).toFixed(2), // dummy stable multiplier
+    lastUpdate: r.lastUpdate || '未知'
+  }));
 
   const filteredInventory = inventoryList.filter(
-    (item) => activeWarehouse === "all" || item.warehouse === activeWarehouse,
+    (item) => (activeWarehouse === "all" || item.warehouse === activeWarehouse) && 
+              (item.name.includes(searchQuery) || item.id.includes(searchQuery))
   );
   const lowStockCount = inventoryList.filter(
     (item) => item.stock < item.safeStock,
@@ -85,7 +49,7 @@ export function InventoryManage() {
         </div>
         <div className="flex gap-3">
           <button
-            onClick={() => toast.info("进入库存盘点流程")}
+            onClick={() => setShowAuditModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition shadow-sm"
           >
             <RefreshCw className="w-4 h-4" /> 库存盘点记录
@@ -147,6 +111,8 @@ export function InventoryManage() {
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="搜索物料或编码..."
                 className="pl-9 pr-4 py-1.5 border border-slate-300 rounded-lg text-sm w-64 focus:outline-none focus:border-indigo-500 bg-slate-50 hover:bg-white transition-colors"
               />
@@ -236,6 +202,81 @@ export function InventoryManage() {
           </table>
         </CardContent>
       </Card>
+
+      {/* Inventory Audit Modal */}
+      {showAuditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col animate-in zoom-in-95">
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                <RefreshCw className="w-5 h-5 text-indigo-600" />
+                系统库存盘点
+              </h3>
+              <button onClick={() => setShowAuditModal(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-full">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="mb-4 p-4 border rounded-lg bg-indigo-50 border-indigo-100">
+                <h4 className="font-bold text-indigo-900 mb-2">新建盘点计划</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm text-slate-600 mb-1">选择盘点仓库</label>
+                    <select className="w-full border-slate-300 rounded text-sm p-2 outline-none">
+                      <option>所有仓库</option>
+                      <option>医疗库</option>
+                      <option>食品库</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-slate-600 mb-1">盘点负责人</label>
+                    <input className="w-full border border-slate-300 rounded text-sm p-2 outline-none" placeholder="输入姓名" defaultValue="系统管理员" />
+                  </div>
+                </div>
+                <div className="mt-4 text-right">
+                  <button 
+                    onClick={() => {
+                       toast.success("盘点计划已生成并派发");
+                       setShowAuditModal(false);
+                    }}
+                    className="bg-indigo-600 text-white px-4 py-2 rounded text-sm hover:bg-indigo-700"
+                  >
+                    生成盘点表
+                  </button>
+                </div>
+              </div>
+
+              <h4 className="font-bold text-slate-800 mb-3 text-sm">最近盘点记录</h4>
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-slate-50 text-slate-500">
+                    <tr>
+                      <th className="px-4 py-2 font-medium">盘点单号</th>
+                      <th className="px-4 py-2 font-medium">仓库</th>
+                      <th className="px-4 py-2 font-medium">状态</th>
+                      <th className="px-4 py-2 font-medium">时间</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {inventoryAudits.map((audit) => (
+                      <tr key={audit.id}>
+                         <td className="px-4 py-3 font-mono text-xs">{audit.id}</td>
+                         <td className="px-4 py-3">{audit.title}</td>
+                         <td className="px-4 py-3">
+                           <span className={`px-2 py-1 rounded text-xs ${audit.status === '已完成' ? 'text-emerald-600 bg-emerald-50' : 'text-amber-600 bg-amber-50'}`}>
+                             {audit.status}
+                           </span>
+                         </td>
+                         <td className="px-4 py-3 text-slate-500 text-xs">{audit.date}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

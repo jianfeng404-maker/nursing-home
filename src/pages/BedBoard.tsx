@@ -94,8 +94,12 @@ export function BedBoard({ setActiveTab }: { setActiveTab?: (tab: string) => voi
     }
     updateBed(activeBedDetail.id, { status: 'empty', elderId: undefined });
     updateBed(selectedTargetBedId, { status: 'occupied', elderId: activeBedDetail.elderId });
-    if (activeElderDetail && selectedTargetCareLevel && selectedTargetCareLevel !== activeElderDetail.careLevel) {
-       updateElder(activeElderDetail.id, { careLevel: selectedTargetCareLevel });
+    if (activeElderDetail) {
+       const newBed = emptyBeds.find(b => b.id === selectedTargetBedId);
+       updateElder(activeElderDetail.id, { 
+         careLevel: selectedTargetCareLevel || activeElderDetail.careLevel,
+         room: newBed ? `${newBed.building}${newBed.room}-${newBed.id.split('-')[1]||'1'}床` : activeElderDetail.room
+       });
     }
     setShowChangeBedModal(false);
     setActiveBedId(selectedTargetBedId);
@@ -108,11 +112,26 @@ export function BedBoard({ setActiveTab }: { setActiveTab?: (tab: string) => voi
   };
 
   const submitDischarge = () => {
-    if (!activeBedDetail) return;
-    updateBed(activeBedDetail.id, { status: 'empty', elderId: undefined });
+    if (!activeBedDetail || !activeElderDetail) return;
+    
+    // Instead of directly emptying the bed here, we trigger a processing discharge record.
+    useStore.getState().addDischarge({
+       id: `OUT-${new Date().toISOString().replace(/\D/g,'').slice(0,8)}-${Math.floor(Math.random()*900+100)}`,
+       name: activeElderDetail.name,
+       room: activeBedDetail.roomType + ' ' + activeBedDetail.room,
+       type: "退住申请",
+       reason: "由房态图申请发起的离院",
+       applyDate: new Date().toISOString().split('T')[0],
+       leaveDate: new Date().toISOString().split('T')[0],
+       status: "processing",
+       checks: { items: false, medical: false, fee: false }
+    });
+    
+    updateElder(activeElderDetail.id, { healthStatus: "办理退住中" });
+
     setShowDischargeModal(false);
     toast.success(`已发起长者离院结算申请，请前往【退住办理】完成后续清退流程。`);
-    if (setActiveTab) setActiveTab('discharge_record');
+    // if (setActiveTab) setActiveTab('discharge_record'); // Requires setActiveTab properly passed or not currently.
   };
 
   const handleStatusChange = (status: any, elderId?: string, msg?: string) => {
@@ -396,7 +415,7 @@ export function BedBoard({ setActiveTab }: { setActiveTab?: (tab: string) => voi
                              <div className="text-center py-6">
                                <p className="text-sm text-slate-500">检测不到未分配床位的在院长者。</p>
                                <button 
-                                 onClick={() => { setIsAssigning(false); toast('开发中: 跳转到长者录入页'); }}
+                                 onClick={() => { setIsAssigning(false); setActiveTab('admission_record'); toast.success('已为您跳转至长者录入页'); }}
                                  className="mt-3 text-sm font-bold text-blue-600 hover:text-blue-800"
                                >
                                  + 录入新长者档案
@@ -678,7 +697,7 @@ export function BedBoard({ setActiveTab }: { setActiveTab?: (tab: string) => voi
                       <div className="border border-slate-300 bg-white p-1 rounded"><FileText className="w-4 h-4 text-slate-500" /></div>
                       <div>
                          <p className="text-sm font-bold text-slate-800">退住清点提交流程说明:</p>
-                         <p className="text-xs text-slate-600 leading-relaxed mt-1">提交本申请后，将进入业务系统的“清退处理池”，需至 【退住办理】 模块由后勤、药房、财务分别进行物资确认、停药算结、余款账单结算，确认完毕床位才可被正式接管入驻新长者。</p>
+                         <p className="text-xs text-slate-600 leading-relaxed mt-1">提交本申请后，将进入业务系统的“清退处理池”，需至 【退住办理】 模块由后勤、药房、财务分别进行物资确认、停药算结、余款账单结算，确认完毕床位才可被正式接管入住新长者。</p>
                       </div>
                    </div>
                 </div>

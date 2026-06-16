@@ -1,6 +1,7 @@
 import { 
   Home, UserPlus, Users, Heart, Phone, ShieldAlert, Cpu, 
-  CreditCard, Package, BarChart, Settings, Code, LucideIcon
+  CreditCard, Package, BarChart, Settings, Code, LucideIcon, Stethoscope,
+  Megaphone, UserCheck
 } from "lucide-react";
 
 export interface MenuItem {
@@ -19,9 +20,9 @@ export const menuGroups: MenuGroup[] = [
     title: "工作台",
     icon: Home,
     items: [
-      { id: "overview", label: "数据总览" },
-      { id: "dispatch", label: "任务调度工作台" },
-      { id: "nurse_station", label: "护理站与体征监控台" },
+      { id: "overview", label: "数据中台" },
+      { id: "dispatch", label: "全院协同工单大厅" },
+      { id: "nurse_station", label: "各主要护理站" },
     ]
   },
   {
@@ -37,34 +38,48 @@ export const menuGroups: MenuGroup[] = [
     title: "照护与医疗运营",
     icon: Heart,
     items: [
-      { id: "care_dashboard", label: "照护指挥调度中心" },
+      { id: "care_dashboard", label: "照护服务全局大盘" },
       { id: "care_assess", label: "健康与自理评估" },
       { id: "care_plan", label: "个人照护计划与目标" },
-      { id: "care_tasks", label: "全局计划与派单排班" },
+      { id: "care_tasks", label: "每日照护任务管理" },
       { id: "care_log", label: "移动端护工执行台" },
       { id: "care_record", label: "执行台账与总结分析" },
+    ]
+  },
+  {
+    title: "康复理疗与专业医务",
+    icon: Stethoscope,
+    items: [
+      { id: "rehab_plan", label: "康复计划与理疗项目" },
+      { id: "doctor_rounds", label: "医师巡查与看诊记录" },
+      { id: "clinical_records", label: "专业医疗护理方案" },
       { id: "medication_manage", label: "医嘱与配发药协同" },
     ]
   },
   {
-    title: "接待与退住流程",
-    icon: UserPlus,
+    title: "营销与客户中心",
+    icon: Megaphone,
     items: [
-      { id: "reception_pipeline", label: "接退住全生命周期看板" },
-      { id: "marketing", label: "沟通回访与接待" },
-      { id: "customer_archives", label: "客户意向档案" },
-      { id: "admission_assess", label: "入住意向评估" },
-      { id: "admission_record", label: "试住与正式入住" },
-      { id: "discharge_record", label: "清点结算与退住" },
-      { id: "complaints", label: "投诉与建议跟进" },
+      { id: "marketing", label: "全渠道线索与来访接待" },
+      { id: "customer_archives", label: "潜在客户意向档案" },
+      { id: "complaints", label: "家属服务与客诉跟进" },
     ]
   },
   {
-    title: "应急响应与呼叫中心",
+    title: "出入退住业务办理",
+    icon: UserCheck,
+    items: [
+      { id: "admission_assess", label: "长者入住前全级评估" },
+      { id: "admission_record", label: "试住及正式入住办理" },
+      { id: "discharge_record", label: "物资清算及最终退住" },
+    ]
+  },
+  {
+    title: "前台与呼叫中心",
     icon: Phone,
     items: [
-      { id: "call_monitor", label: "实时呼叫台与坐席调度" },
-      { id: "call_history", label: "呼叫处理记录与回溯" }
+      { id: "call_monitor", label: "前台接听与工单创建" },
+      { id: "call_history", label: "呼叫流水与话务回溯" }
     ]
   },
   {
@@ -80,6 +95,7 @@ export const menuGroups: MenuGroup[] = [
     title: "智能物联网管控",
     icon: Cpu,
     items: [
+      { id: "command_center", label: "实时中控大屏可视化" },
       { id: "iot_dashboard", label: "物联设备运行大盘" },
       { id: "iot_instances", label: "设备台账与生命周期管理" },
       { id: "iot_catalog", label: "网关配置与标准物模型" },
@@ -87,16 +103,18 @@ export const menuGroups: MenuGroup[] = [
     ]
   },
   {
-    title: "财务中心",
+    title: "财务收支中心",
     icon: CreditCard,
     items: [
-      { id: "finance_dashboard", label: "财务数据大盘中台" },
-      { id: "fee_items", label: "收费标准与项目库" },
-      { id: "contract_manage", label: "周期合同与计费引擎" },
-      { id: "billing", label: "长者大账单生成与核对" },
-      { id: "payment_settle", label: "前台缴费与结算大厅" },
-      { id: "deposit_manage", label: "长者押金与备用金管理" },
-      { id: "invoice_manage", label: "电子发票与纸质收据" },
+      { id: "finance_dashboard", label: "财务经营数据大盘" },
+      { id: "admission_payment", label: "入住办理收银台" },
+      { id: "billing", label: "在院长者月度账单" },
+      { id: "discharge_refund", label: "退住清算与退费申请" },
+      { id: "payment_settle", label: "零星收退费与前台结算" },
+      { id: "insurance_settle", label: "长护险与医保结算" },
+      { id: "deposit_manage", label: "预存账户与押金管理" },
+      { id: "fee_items", label: "收费标准与项目字典" },
+      { id: "invoice_manage", label: "发票与收银单据管理" },
     ]
   },
   {
@@ -128,7 +146,7 @@ export const menuGroups: MenuGroup[] = [
     items: [
       { id: "staff_struct", label: "组织架构与人员库" },
       { id: "attendance", label: "员工考勤打卡" },
-      { id: "schedule_plan", label: "班次设置及排班表" },
+      { id: "schedule_plan", label: "全院考勤与班次排班" },
       { id: "sys_basic", label: "字典及规则设置" },
       { id: "care_sop", label: "照护等级与SOP引擎" },
       { id: "bed_manage", label: "房态与楼宇字典" },

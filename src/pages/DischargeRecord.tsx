@@ -1,16 +1,14 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { DoorOpen, Search, Filter, Key, Pill, Coffee, CreditCard, LogOut, CheckCircle2, FileText, ArrowRight, X } from "lucide-react";
+import { useStore, DischargeRecordType } from "../store";
 
 export function DischargeRecord() {
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState<any>(null);
+  const [selectedRecord, setSelectedRecord] = useState<DischargeRecordType | null>(null);
 
-  const [records, setRecords] = useState([
-    { id: "OUT-20231102-01", name: "赵大爷", room: "A栋-305", type: "正常退住", reason: "家属接回居家照护", applyDate: "2023-11-01", leaveDate: "2023-11-05", status: "processing", checks: { items: true, medical: false, fee: false } },
-    { id: "OUT-20231028-02", name: "王奶奶", room: "B栋-102", type: "医疗转院", reason: "突发疾病转三甲医院", applyDate: "2023-10-28", leaveDate: "2023-10-28", status: "completed", checks: { items: true, medical: true, fee: true } },
-    { id: "OUT-20231025-01", name: "刘建国", room: "A栋-102", type: "正常退住", reason: "试住期满不满意", applyDate: "2023-10-20", leaveDate: "2023-10-24", status: "completed", checks: { items: true, medical: true, fee: true } },
-  ]);
+  const records = useStore(state => state.discharges);
+  // Optional: const updateDischarge = useStore(state => state.updateDischarge); if we need to modify it
 
   const handleOpenCheckout = (record: any) => {
     setSelectedRecord(record);
@@ -207,6 +205,21 @@ export function DischargeRecord() {
                          <button className="mt-3 text-xs bg-white border border-slate-300 font-medium px-3 py-1.5 rounded text-blue-600 hover:bg-blue-50">催促确认</button>
                       </div>
                    </div>
+
+                   <div className="bg-white border border-rose-200 rounded-xl p-5 shadow-sm">
+                      <div className="flex items-center justify-between mb-2">
+                         <h4 className="font-bold text-slate-800 flex items-center gap-2"><DoorOpen className="w-4 h-4 text-rose-500" /> 通行权限自动收回</h4>
+                         <span className="text-xs text-rose-600 bg-rose-50 px-2 py-1 rounded font-medium">即将执行</span>
+                      </div>
+                      <div className="text-sm text-slate-500 bg-rose-50/50 p-3 rounded-lg border border-rose-100 mt-3">
+                         <p className="mb-2">当完成财务结账操作退住后，系统将自动对长者以下权限进行收回销毁：</p>
+                         <ul className="list-disc pl-5 space-y-1 text-slate-600 font-medium font-sm">
+                             <li>吊销长者的园区大门、闸机及活动室的门禁通行权限</li>
+                             <li>注销长者人脸识别白名单特征与指纹库记录</li>
+                             <li>解绑对应床位的物联设备（雷达、床垫、呼叫铃），并重置为待分配状态</li>
+                         </ul>
+                      </div>
+                   </div>
                 </div>
 
                 {/* 右侧财务结算 */}
@@ -242,8 +255,52 @@ export function DischargeRecord() {
                       </div>
                    </div>
                    <div className="p-4 border-t border-slate-100 bg-slate-50">
-                      <button className="w-full py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition shadow-sm flex items-center justify-center gap-2">
-                        确认结清并打印退房单 <ArrowRight className="w-4 h-4" />
+                      <button 
+                         onClick={() => {
+                            // Update discharge status
+                            const storeState = useStore.getState();
+                            storeState.updateDischarge(selectedRecord.id, {
+                               status: 'completed',
+                               checks: { items: true, medical: true, fee: true }
+                            });
+                            
+                            const matchedElder = storeState.elders.find(e => e.name === selectedRecord.name);
+                            if (matchedElder) {
+                               storeState.removeElder(matchedElder.id);
+                               const matchedBed = storeState.beds.find(b => b.elderId === matchedElder.id);
+                               if (matchedBed) {
+                                  storeState.updateBed(matchedBed.id, { status: 'empty', elderId: undefined });
+                               }
+                            } else {
+                               // Fallback clear by room string loosely
+                               const matchedBed = storeState.beds.find(b => b.status === 'occupied' && selectedRecord.room.includes(b.room));
+                               if (matchedBed) {
+                                  storeState.updateBed(matchedBed.id, { status: 'empty', elderId: undefined });
+                               }
+                            }
+
+                            // Create a refund bill
+                            storeState.addBill({
+                               id: `BILL-OUT-${new Date().toISOString().replace(/\D/g,'').slice(0,8)}-${Math.floor(Math.random() * 900 + 100)}`,
+                               elder: selectedRecord.name,
+                               room: selectedRecord.room,
+                               period: "退住清算及押金退还",
+                               dueDate: new Date().toISOString().split('T')[0],
+                               status: "已核发 (待缴款)",
+                               total: "-53,450.00",
+                               items: [
+                                  { name: "入住押金退还", amount: "-50,000.00", type: "fixed" },
+                                  { name: "医疗备用金退还", amount: "-5,000.00", type: "fixed" }
+                               ],
+                               deductions: [
+                                  { name: "不足月床位费核减", amount: "1,200.00" },
+                                  { name: "当月已产生餐费", amount: "350.00" }
+                               ]
+                            });
+                            setShowCheckoutModal(false);
+                         }}
+                         className="w-full py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition shadow-sm flex items-center justify-center gap-2">
+                        确认结清并流转财务打印单 <ArrowRight className="w-4 h-4" />
                       </button>
                    </div>
                 </div>

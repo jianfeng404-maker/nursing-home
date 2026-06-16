@@ -27,7 +27,7 @@ const categoryData = [
   { name: "呼叫器", value: 120, color: "#f59e0b" },
 ];
 
-export function IotDashboard() {
+export function IotDashboard({ setActiveTab }: { setActiveTab: (tab: string) => void }) {
   const iotDevices = useStore(state => state.iotDevices);
   
   const onlineCount = iotDevices.filter(d => d.status === '在线').length;
@@ -58,14 +58,23 @@ export function IotDashboard() {
           <h2 className="text-2xl font-bold text-slate-800 tracking-tight">物联设备运行大盘</h2>
           <p className="text-slate-500 text-sm mt-1">集中看板呈现各类健康体征设备、雷达传感器的在线与数据流入量状态</p>
         </div>
-        <div className="flex items-center gap-3 bg-white p-1 rounded-lg border border-slate-200 shadow-sm text-sm">
-          <div className="px-3 py-1 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="text-slate-600 font-medium">MQTT Gateway: 运行中</span>
-          </div>
-          <div className="w-px h-4 bg-slate-200"></div>
-          <div className="px-3 py-1 text-slate-500">
-            Node: ws-cn-east-01
+        <div className="flex items-center gap-4">
+          <button 
+             onClick={() => setActiveTab('command_center')}
+             className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-medium rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2"
+          >
+             <Zap className="w-4 h-4" />
+             进入全景大屏
+          </button>
+          <div className="flex items-center gap-3 bg-white p-1 rounded-lg border border-slate-200 shadow-sm text-sm">
+            <div className="px-3 py-1 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="text-slate-600 font-medium">MQTT Gateway: 运行中</span>
+            </div>
+            <div className="w-px h-4 bg-slate-200"></div>
+            <div className="px-3 py-1 text-slate-500">
+              Node: ws-cn-east-01
+            </div>
           </div>
         </div>
       </div>

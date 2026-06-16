@@ -1,10 +1,3 @@
-import { GoogleGenAI } from '@google/genai';
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-// Using gemini-2.5-flash as default model
-const MODEL_NAME = 'gemini-2.5-flash';
-
 export async function generateCareReport(elderName: string, careRecords: any[], healthData: any[]) {
   try {
     const prompt = `
@@ -26,12 +19,19 @@ export async function generateCareReport(elderName: string, careRecords: any[], 
       
       返回格式为纯文本，请适当进行排版，不要有过多的格式符号。`;
 
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: prompt,
+    const token = localStorage.getItem('token');
+    const response = await fetch('/api/ai/generate', {
+       method: 'POST',
+       headers: { 
+         'Content-Type': 'application/json',
+         'Authorization': `Bearer ${token}`
+       },
+       body: JSON.stringify({ prompt })
     });
     
-    return response.text;
+    if (!response.ok) throw new Error('AI Server responded with error');
+    const data = await response.json();
+    return data.text;
   } catch (error) {
     console.error("AI Error generating report:", error);
     throw new Error('生成报告时出错，请检查网络或配置。');
@@ -57,12 +57,19 @@ export async function generateWeeklyMenu(eldersData: any, existingDishes: any) {
       返回格式为纯文本，排版清晰易读。
     `;
 
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: prompt,
+    const token = localStorage.getItem('token');
+    const response = await fetch('/api/ai/generate', {
+       method: 'POST',
+       headers: { 
+         'Content-Type': 'application/json',
+         'Authorization': `Bearer ${token}`
+       },
+       body: JSON.stringify({ prompt })
     });
     
-    return response.text;
+    if (!response.ok) throw new Error('AI Server responded with error');
+    const data = await response.json();
+    return data.text;
   } catch (error) {
     console.error("AI Error generating menu:", error);
     throw new Error('AI编制菜谱时出错，请检查网络或配置。');
@@ -85,12 +92,19 @@ export async function analyzeVitalSignsAnomaly(vitalData: any) {
       输出结果应简明扼要，控制在300字内，分点列出。
     `;
 
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: prompt,
+    const token = localStorage.getItem('token');
+    const response = await fetch('/api/ai/generate', {
+       method: 'POST',
+       headers: { 
+         'Content-Type': 'application/json',
+         'Authorization': `Bearer ${token}`
+       },
+       body: JSON.stringify({ prompt })
     });
     
-    return response.text;
+    if (!response.ok) throw new Error('AI Server responded with error');
+    const data = await response.json();
+    return data.text;
   } catch (error) {
     console.error("AI Error analyzing anomaly:", error);
     throw new Error('分析异动时出错，请检查配置。');

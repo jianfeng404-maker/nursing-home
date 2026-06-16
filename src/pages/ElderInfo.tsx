@@ -1,9 +1,14 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { Search, Filter, Plus, User, FileText, CheckCircle2, ChevronRight, Activity, MapPin, Eye, Edit, X, Watch, Wifi } from "lucide-react";
+import { Search, Filter, Plus, User, FileText, CheckCircle2, ChevronRight, Activity, MapPin, Eye, Edit, X, Watch, Wifi, HeartPulse, Users as UsersIcon, ShieldAlert, ArrowLeft } from "lucide-react";
 import { useStore } from "../store";
 
-export function ElderInfo({ setActiveTab, setTargetElderId, targetElderId, targetAction, embedded }: { setActiveTab?: (tab: string) => void, setTargetElderId?: (id: string | null) => void, targetElderId?: string | null, targetAction?: string | null, embedded?: boolean }) {
+import { HealthRecord } from "./HealthRecord";
+import { FamilyBind } from "./FamilyBind";
+import { ElderDevices } from "./ElderDevices";
+import { SafetyMonitor } from "./SafetyMonitor";
+
+export function ElderInfo({ setActiveTab, setTargetElderId: propSetTargetElderId, targetElderId: propTargetElderId, targetAction, embedded }: { setActiveTab?: (tab: string) => void, setTargetElderId?: (id: string | null) => void, targetElderId?: string | null, targetAction?: string | null, embedded?: boolean }) {
   const [selectedStatus, setSelectedStatus] = useState('在院');
   const [showNewElderModal, setShowNewElderModal] = useState(false);
   const [selectedElder, setSelectedElder] = useState<any>(null);
@@ -11,7 +16,9 @@ export function ElderInfo({ setActiveTab, setTargetElderId, targetElderId, targe
   const [isEditing, setIsEditing] = useState(false);
   const [showChangeRoomModal, setShowChangeRoomModal] = useState(false);
 
-  const { elders: storeElders, beds, setTargetElderId: globalSetTargetElderId, setTargetElderTab, updateElder, addElder, careLevels } = useStore();
+  const { elders: storeElders, beds, setTargetElderId: globalSetTargetElderId, targetElderId: globalTargetElderId, setTargetElderTab, targetElderTab, updateElder, addElder, removeElder, careLevels } = useStore();
+
+  const actualTargetElderId = propTargetElderId || globalTargetElderId;
 
   const handleSave = () => {
     const newName = (document.getElementById('edit-name') as HTMLInputElement)?.value || selectedElder.name;
@@ -100,24 +107,26 @@ export function ElderInfo({ setActiveTab, setTargetElderId, targetElderId, targe
   });
 
   useEffect(() => {
-    if (targetElderId && embedded) {
-       const elder = allElders.find(e => e.id === targetElderId);
+    if (actualTargetElderId) {
+       const elder = allElders.find(e => e.id === actualTargetElderId || e.id === `ELD-${actualTargetElderId.replace('ELD-', '')}`);
        if (elder) {
          setSelectedElder((prev: any) => prev?.id === elder.id ? prev : elder);
          if (targetAction === 'change_room') {
             setShowChangeRoomModal(true);
          }
        }
+    } else {
+       setSelectedElder(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetElderId, targetAction, embedded]);
+  }, [actualTargetElderId, targetAction]);
 
   const handleOpenDetail = (elder: any) => {
     if (globalSetTargetElderId) {
       globalSetTargetElderId(elder.id);
       setTargetElderTab('info');
-    } else if (setTargetElderId) {
-      setTargetElderId(elder.id);
+    } else if (propSetTargetElderId) {
+      propSetTargetElderId(elder.id);
     }
   };
 
@@ -129,9 +138,23 @@ export function ElderInfo({ setActiveTab, setTargetElderId, targetElderId, targe
            <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
               <CardTitle className="text-lg font-bold text-slate-800">{isEditing ? '编辑基本资料' : '基本信息'}</CardTitle>
               {!isEditing && embedded && (
+                 <div className="flex items-center gap-4">
                  <button onClick={() => setIsEditing(true)} className="text-indigo-600 text-sm font-medium hover:underline flex items-center gap-1">
                    <Edit className="w-4 h-4"/> 修改基础信息
                  </button>
+                 <button 
+                   onClick={() => {
+                     if(window.confirm('确定要删除这位长者的所有信息吗？本操作不可恢复。')) {
+                       removeElder(selectedElder.id);
+                       if (globalSetTargetElderId) globalSetTargetElderId(null);
+                       if (propSetTargetElderId) propSetTargetElderId(null);
+                     }
+                   }}
+                   className="text-rose-600 text-sm font-medium hover:underline flex items-center gap-1"
+                 >
+                   <X className="w-4 h-4"/> 删除该长者档案
+                 </button>
+                 </div>
               )}
            </CardHeader>
            <CardContent className="pt-6">
@@ -331,35 +354,81 @@ export function ElderInfo({ setActiveTab, setTargetElderId, targetElderId, targe
     </div>
   );
 
-  if (embedded) {
-    if (!selectedElder) {
-      return <div className="h-48 flex items-center justify-center text-slate-500">正在加载长者信息...</div>;
-    }
-    return (
-       <div className="animate-in fade-in pb-8">
-         <div className="mb-6 border-b border-slate-200 pb-4 flex justify-between items-center px-6 pt-2">
-            <div className="flex items-center gap-4">
-               <div className="w-16 h-16 rounded-full flex items-center justify-center font-bold text-2xl bg-indigo-100 text-indigo-700 shadow-sm overflow-hidden shrink-0">
-                 {selectedElder.avatar ? <img src={selectedElder.avatar} className="w-full h-full object-cover" alt={selectedElder.name} /> : selectedElder.name?.[0]}
+  // Optional: A helper to handle tab clicks
+  const handleTabClick = (tabId: string) => {
+    setTargetElderTab(tabId);
+  };
+
+  const tabsMenu = [
+    { id: 'info', label: '基本资料与特征', icon: User },
+    { id: 'health', label: '健康与用药档案', icon: HeartPulse },
+    { id: 'family', label: '亲属与授权绑定', icon: UsersIcon },
+    { id: 'devices', label: '已绑定设备', icon: Wifi }
+  ];
+
+  if (actualTargetElderId && selectedElder) {
+    const detailLayout = (
+      <div className="bg-white border text-sm border-slate-200 shadow-sm rounded-xl overflow-hidden flex flex-col h-[calc(100vh-120px)] animate-in fade-in zoom-in-95 duration-200">
+         <div className="border-b border-slate-200 pb-0 flex flex-col bg-slate-50 shrink-0">
+            <div className="flex justify-between items-center px-6 pt-4 pb-2">
+               <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-full flex items-center justify-center font-bold text-xl bg-indigo-100 text-indigo-700 shadow-sm overflow-hidden shrink-0">
+                    {selectedElder.avatar ? <img src={selectedElder.avatar} className="w-full h-full object-cover" alt={selectedElder.name} /> : selectedElder.name?.[0]}
+                  </div>
+                  <div>
+                     <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+                        {selectedElder.name}
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${selectedElder.status === '在院' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{selectedElder.status}</span>
+                     </h3>
+                     <p className="text-sm text-slate-500 mt-0.5">{selectedElder.age}岁 · {selectedElder.gender} · 档案编号: {selectedElder.id}</p>
+                  </div>
                </div>
-               <div>
-                  <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
-                     {selectedElder.name}
-                     <span className={`text-xs px-2 py-0.5 rounded-full ${selectedElder.status === '在院' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{selectedElder.status}</span>
-                  </h3>
-                  <p className="text-sm text-slate-500 mt-0.5">{selectedElder.age}岁 · {selectedElder.gender} · 档案编号: {selectedElder.id}</p>
+               <div className="flex items-center gap-3">
+                 {!embedded && (
+                   <button onClick={() => { if(globalSetTargetElderId) globalSetTargetElderId(null); if(propSetTargetElderId) propSetTargetElderId(null); }} className="text-slate-600 flex items-center gap-1 font-medium bg-white px-3 py-1.5 border border-slate-200 shadow-sm rounded-lg hover:bg-slate-50">
+                     <ArrowLeft className="w-4 h-4"/> 返回列表
+                   </button>
+                 )}
                </div>
             </div>
-            {!isEditing && (
-              <button onClick={() => { setIsEditing(true); }} className="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center gap-1 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100">
-                <Edit className="w-4 h-4" /> 修改基础信息
-              </button>
-            )}
+            
+            <div className="flex px-6 pt-2">
+               {tabsMenu.map(tab => (
+                 <button 
+                    key={tab.id}
+                    onClick={() => handleTabClick(tab.id)}
+                    className={`flex items-center gap-2 px-5 py-2.5 font-medium border-b-2 text-sm transition-colors ${targetElderTab === tab.id ? 'border-indigo-600 text-indigo-700 bg-indigo-50/50' : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/50'}`}
+                 >
+                    <tab.icon className="w-4 h-4" /> {tab.label}
+                 </button>
+               ))}
+            </div>
          </div>
-         {renderDetailContent()}
+         
+         <div className="flex-1 overflow-auto bg-slate-50/30">
+            {targetElderTab === 'info' && renderDetailContent()}
+            {targetElderTab === 'health' && <HealthRecord targetElderId={actualTargetElderId} embedded={true} />}
+            {targetElderTab === 'family' && <FamilyBind targetElderId={actualTargetElderId} embedded={true} />}
+            {targetElderTab === 'devices' && <ElderDevices targetElderId={actualTargetElderId} embedded={true} />}
+         </div>
+      </div>
+    );
 
+    if (embedded) {
+       return <div className="h-full w-full">{detailLayout}</div>;
+    }
+
+    return (
+       <div className="animate-in fade-in duration-500 pb-8 h-full">
+         <div className="mb-6 flex justify-between items-end shrink-0">
+           <div>
+             <h1 className="text-2xl font-bold text-slate-800 mb-1">长者全量档案卷宗</h1>
+             <span className="text-sm text-slate-500">查看长者的详细信息、健康状况、家属及设备信息</span>
+           </div>
+         </div>
+         {detailLayout}
        </div>
-     );
+    );
   }
 
   return (
@@ -471,7 +540,7 @@ export function ElderInfo({ setActiveTab, setTargetElderId, targetElderId, targe
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
                            <button onClick={() => handleOpenDetail(elder)} className="text-indigo-600 hover:text-indigo-800 p-1.5 rounded hover:bg-indigo-50 transition" title="查阅全量档案"><FileText className="w-4 h-4" /></button>
-                           <button onClick={() => { if (globalSetTargetElderId) { globalSetTargetElderId(elder.id); setTargetElderTab('info'); } else if (setTargetElderId) setTargetElderId(elder.id); }} className="text-slate-400 hover:text-slate-600 p-1.5 rounded hover:bg-slate-50 transition" title="编辑资料"><Edit className="w-4 h-4" /></button>
+                           <button onClick={() => { if (globalSetTargetElderId) { globalSetTargetElderId(elder.id); setTargetElderTab('info'); } else if (propSetTargetElderId) propSetTargetElderId(elder.id); }} className="text-slate-400 hover:text-slate-600 p-1.5 rounded hover:bg-slate-50 transition" title="编辑资料"><Edit className="w-4 h-4" /></button>
                         </div>
                       </td>
                     </tr>

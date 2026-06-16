@@ -2,10 +2,15 @@ import { useState } from "react";
 import { Card, CardContent } from "../components/ui/card";
 import { Search, Plus, Filter, PackageOpen, CheckCircle2, ClipboardCopy, X, Info } from "lucide-react";
 
+import { useStore } from "../store";
+import { toast } from "sonner";
+
 export function MaterialConsume() {
   const [activeTab, setActiveTab] = useState('record');
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  const addBill = useStore(state => state.addBill);
 
   const [records, setRecords] = useState([
     {
@@ -41,6 +46,8 @@ export function MaterialConsume() {
     { id: "MAT004", name: "专用营养粉", category: "营养膳食", price: "128.00", unit: "罐", stock: 45 },
   ]);
 
+  const filteredInventory = inventory.filter(i => i.name.includes(searchTerm) || i.id.includes(searchTerm) || i.category.includes(searchTerm));
+
   const [newRecord, setNewRecord] = useState({
     elder: "",
     material: "",
@@ -69,6 +76,20 @@ export function MaterialConsume() {
     setRecords([r, ...records]);
     setShowAddModal(false);
     setNewRecord({ elder: "", material: "", quantity: 1 });
+
+    addBill({
+      id: `BILL-MAT-${new Date().toISOString().replace(/\D/g, '').slice(0, 8)}-${Math.floor(Math.random() * 90 + 10)}`,
+      elder: r.elderName,
+      room: r.bed,
+      period: "零星物资记账扣费",
+      dueDate: new Date().toISOString().split('T')[0],
+      status: "未缴费",
+      total: r.amount,
+      items: [
+        { name: `${r.materialName} x${r.quantity}${r.unit}`, amount: r.amount, type: "usage" }
+      ]
+    });
+    toast.success(`已记录消耗，并生成账单扣费项：￥${r.amount}`);
   };
 
   const filteredRecords = records.filter(r => 
@@ -99,13 +120,13 @@ export function MaterialConsume() {
           <div className="flex px-4 overflow-x-auto">
             <button 
               className={`whitespace-nowrap px-4 py-3 font-medium text-sm border-b-2 transition-colors ${activeTab === 'record' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-              onClick={() => setActiveTab('record')}
+              onClick={() => { setActiveTab('record'); setSearchTerm(''); }}
             >
               消耗登记流水
             </button>
             <button 
               className={`whitespace-nowrap px-4 py-3 font-medium text-sm border-b-2 transition-colors ${activeTab === 'stock' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-              onClick={() => setActiveTab('stock')}
+              onClick={() => { setActiveTab('stock'); setSearchTerm(''); }}
             >
               库存与扣费项目库
             </button>
@@ -191,23 +212,36 @@ export function MaterialConsume() {
         )}
 
         {activeTab === 'stock' && (
-          <CardContent className="p-0 overflow-x-auto">
-             <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center text-sm text-slate-600">
-                <span className="flex items-center gap-2"><Info className="w-4 h-4 text-blue-500"/> 列出可供长者单独记账扣费的物资及单价</span>
-                <button className="text-blue-600 font-medium hover:underline">管理扣费项目库</button>
-             </div>
-             <table className="w-full text-left border-collapse min-w-[800px]">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">物资编码</th>
-                    <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">物资名称</th>
-                    <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">分类</th>
-                    <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">记账单价</th>
-                    <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">当前库存</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {inventory.map(item => (
+          <>
+            <div className="p-4 border-b border-slate-100 flex gap-3 items-center text-sm">
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input 
+                    type="text" 
+                    placeholder="搜索包含物资名称、编码..." 
+                    className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm w-64 focus:outline-none focus:border-blue-500"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+            </div>
+            <CardContent className="p-0 overflow-x-auto">
+               <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center text-sm text-slate-600">
+                  <span className="flex items-center gap-2"><Info className="w-4 h-4 text-blue-500"/> 列出可供长者单独记账扣费的物资及单价</span>
+                  <button className="text-blue-600 font-medium hover:underline">管理扣费项目库</button>
+               </div>
+               <table className="w-full text-left border-collapse min-w-[800px]">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">物资编码</th>
+                      <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">物资名称</th>
+                      <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">分类</th>
+                      <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">记账单价</th>
+                      <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">当前库存</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredInventory.map(item => (
                     <tr key={item.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4 text-sm font-mono text-slate-500">{item.id}</td>
                       <td className="px-6 py-4 font-medium text-slate-800">{item.name}</td>
@@ -220,9 +254,15 @@ export function MaterialConsume() {
                       </td>
                     </tr>
                   ))}
+                  {filteredInventory.length === 0 && (
+                     <tr>
+                        <td colSpan={5} className="px-6 py-8 text-center text-slate-500">没有任何符合条件的物资</td>
+                     </tr>
+                  )}
                 </tbody>
              </table>
           </CardContent>
+          </>
         )}
       </Card>
 

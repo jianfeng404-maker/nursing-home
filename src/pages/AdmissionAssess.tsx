@@ -2,6 +2,9 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Clock, Search, Filter, Plus, FileText, CheckCircle2, XCircle, ChevronRight, UserPlus, FileSignature, X, ClipboardList, Check } from "lucide-react";
 
+import { toast } from "sonner";
+import { useStore } from "../store";
+
 const adlItems = [
   { id: "eating", title: "进食", options: [{ label: "完全依赖", score: 0 }, { label: "需部分帮助", score: 5 }, { label: "全面自理", score: 10 }] },
   { id: "bathing", title: "洗澡", options: [{ label: "完全依赖", score: 0 }, { label: "自理", score: 5 }] },
@@ -42,9 +45,11 @@ export function AdmissionAssess() {
 
   const [records, setRecords] = useState([
     { id: "ASM-20231101-01", name: "张明宇", age: 82, gender: "男", contact: "张小强 (儿子)", phone: "13800138000", scheduledDate: "2023-11-05 10:00", status: "pending", careLevel: "", assessor: "", remarks: "心脑血管疾病史，行动不便需要轮椅" },
-    { id: "ASM-20231028-04", name: "李秀红", age: 76, gender: "女", contact: "王芳 (女儿)", phone: "13912345678", scheduledDate: "2023-10-30 14:00", status: "completed", careLevel: "二级护理", assessor: "刘医生, 张护士长", remarks: "老年痴呆早期，生活基本自理但有走失风险，系统评定二级" },
+    { id: "ASM-20231028-04", name: "李秀红", age: 76, gender: "女", contact: "王芳 (女儿)", phone: "13912345678", scheduledDate: "2023-10-30 14:00", status: "completed", careLevel: "二级护理", assessor: "刘医生, 张护张士长", remarks: "老年痴呆早期，生活基本自理但有走失风险，系统评定二级" },
     { id: "ASM-20231025-02", name: "赵建国", age: 88, gender: "男", contact: "赵建军 (儿子)", phone: "13700001111", scheduledDate: "2023-10-26 09:30", status: "cancelled", careLevel: "", assessor: "", remarks: "家属临时取消，考虑转去其他机构" },
   ]);
+
+  const addAdmission = useStore(state => state.addAdmission);
 
   const handleOpenDetail = (record: any) => {
     setSelectedRecord(record);
@@ -360,8 +365,27 @@ export function AdmissionAssess() {
                       </div>
                     </div>
                     <div className="mt-5 flex justify-end gap-3">
-                       <button onClick={() => setShowDetailModal(false)} className="px-5 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
-                        提交完成评估并归档
+                       <button onClick={() => setShowDetailModal(false)} className="px-5 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">
+                        仅归档
+                      </button>
+                       <button 
+                          onClick={() => {
+                              addAdmission({
+                                id: `ADM-${new Date().toISOString().replace(/\D/g, '').slice(0,8)}-${Math.floor(Math.random()*90+10)}`,
+                                name: selectedRecord.name,
+                                assessmentLevel: assessmentForm.careLevel || "二级护理",
+                                family: selectedRecord.contact.split(' ')[0],
+                                phone: selectedRecord.phone,
+                                idCard: "110105194001011234",
+                                status: "pending",
+                                progress: { info: false, bed: false, contract: false, payment: false }
+                              });
+                              setRecords(records.map(r => r.id === selectedRecord.id ? { ...r, status: 'completed', careLevel: assessmentForm.careLevel || "二级护理" } : r));
+                              setShowDetailModal(false);
+                              toast.success("评估已归档，并成功流转至【入住办理】");
+                          }}
+                          className="px-5 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm whitespace-nowrap">
+                        提交评估并流转入住办理
                       </button>
                     </div>
                   </div>

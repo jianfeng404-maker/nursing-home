@@ -207,10 +207,11 @@ export function DevDocs() {
                   <div className="p-6">
                      <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-rose-500 block"></span> 智能财务与结算流水</h4>
                      <ul className="space-y-2 text-sm text-slate-600">
-                        <li>• 财务大盘中台与收支分析</li>
-                        <li>• 费用标准与自定义项目库</li>
-                        <li>• 长者月度大账单自动化出账核对</li>
-                        <li>• 押金备用金流水记录</li>
+                        <li>• 财务大盘中台与结算管线分析</li>
+                        <li>• 费用标准与自定义项目字典库</li>
+                        <li>• 在院长者月度大账单自动化出账</li>
+                        <li>• 长护险与医保对接核销申报单据</li>
+                        <li>• 押金备用金流水与前台零星收清算</li>
                      </ul>
                   </div>
                   <div className="p-6">
@@ -238,21 +239,26 @@ export function DevDocs() {
          <section>
             <div className="flex items-center gap-2 mb-4">
                <Component className="w-6 h-6 text-fuchsia-600" />
-               <h3 className="text-xl font-black text-slate-800">3. 沉淀及复用基础前端组件库</h3>
+               <h3 className="text-xl font-black text-slate-800">3. 沉淀及复用基础前端组件库与核心业务视图</h3>
             </div>
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 md:p-8">
-               <p className="text-slate-500 text-sm mb-6">系统基于 Tailwind 提取了一系列高频使用、高度封装的业务无关层组件用于快速搭建前端页面。</p>
+               <p className="text-slate-500 text-sm mb-6">系统梳理了各业务模块的核心视图组件，方便二次开发与多平台复用。</p>
                
                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {[
-                     { name: "Button", desc: "主按钮/次按钮/幽灵按钮", icon: <Box className="w-4 h-4 text-slate-400" /> },
-                     { name: "Card", desc: "带阴影、边框的卡片容器", icon: <Box className="w-4 h-4 text-slate-400" /> },
-                     { name: "Input & Select", desc: "统一样式的表单输入控件簇", icon: <Box className="w-4 h-4 text-slate-400" /> },
-                     { name: "Dialog & Modal", desc: "操作确认及侧边拉出弹窗", icon: <Box className="w-4 h-4 text-slate-400" /> },
-                     { name: "Table & DataGrid", desc: "基础数据二维表呈现及分页", icon: <Box className="w-4 h-4 text-slate-400" /> },
-                     { name: "Tabs", desc: "平滑切换的头部导航选项卡", icon: <Box className="w-4 h-4 text-slate-400" /> },
-                     { name: "Badge & Tag", desc: "状态强调及短文本分类标签", icon: <Box className="w-4 h-4 text-slate-400" /> },
-                     { name: "Avatars", desc: "老人、员工圆形头像缩略位", icon: <Box className="w-4 h-4 text-slate-400" /> }
+                     { name: "NurseStation", desc: "护理站监控概览大屏视图", icon: <MonitorSmartphone className="w-4 h-4 text-blue-500" /> },
+                     { name: "FinanceDashboard", desc: "实事财务大盘与全线预警视图", icon: <Box className="w-4 h-4 text-rose-500" /> },
+                     { name: "InsuranceSettle", desc: "长护险与医保结算单据汇编生成", icon: <Box className="w-4 h-4 text-rose-400" /> },
+                     { name: "DoctorRounds", desc: "医师巡查与现场看诊工单", icon: <Box className="w-4 h-4 text-emerald-500" /> },
+                     { name: "RehabPlan", desc: "系统化康复理疗方案跟进", icon: <Box className="w-4 h-4 text-emerald-500" /> },
+                     { name: "InventoryManage", desc: "跨仓库耗材库存盘点与监控", icon: <Box className="w-4 h-4 text-amber-500" /> },
+                     { name: "LeaveManage", desc: "长者请假管理及财务联动退费流", icon: <Box className="w-4 h-4 text-slate-400" /> },
+                     { name: "MedicationManage", desc: "代理取药及每日定时派发服药单", icon: <Box className="w-4 h-4 text-emerald-400" /> },
+                     { name: "Complaints", desc: "客户投诉登记与赔偿账单联动", icon: <Box className="w-4 h-4 text-rose-400" /> },
+                     { name: "StaffStruct", desc: "组织架构与人员库树状视图", icon: <Box className="w-4 h-4 text-indigo-400" /> },
+                     { name: "MaterialConsume", desc: "后勤仓库零星物品代购记账", icon: <Box className="w-4 h-4 text-amber-400" /> },
+                     { name: "AdmissionRecord", desc: "接退住核心审批及评估管线", icon: <Box className="w-4 h-4 text-cyan-400" /> },
+                     { name: "Catering", desc: "长者膳食点餐与特殊要求备注", icon: <Box className="w-4 h-4 text-purple-400" /> }
                   ].map(c => (
                      <div key={c.name} className="border border-slate-100 bg-slate-50 hover:bg-slate-100 transition-colors rounded-xl p-4 flex flex-col justify-center">
                         <div className="flex items-center gap-2 mb-1.5">

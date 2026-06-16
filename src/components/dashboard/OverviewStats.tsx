@@ -12,12 +12,14 @@ export function OverviewStats({ setActiveTab }: OverviewStatsProps) {
   const alerts = useStore(state => state.alerts);
   const tasks = useStore(state => state.tasks);
 
+  const beds = useStore(state => state.beds);
+
   const pendingAlertsCount = alerts.filter(a => a.status === 'pending').length;
   const criticalAlertsCount = alerts.filter(a => a.status === 'pending' && a.level === 'critical').length;
   
-  const totalBeds = 120;
-  const occupiedBeds = elders.length;
-  const freeBeds = totalBeds - occupiedBeds;
+  const totalBeds = beds.length > 0 ? beds.length : 0;
+  const freeBeds = beds.filter(b => b.status === 'empty').length;
+  const occupiedBeds = totalBeds - freeBeds;
   const occupancyRate = Math.round((occupiedBeds / totalBeds) * 100);
 
   const totalTasks = tasks.length;
@@ -32,7 +34,7 @@ export function OverviewStats({ setActiveTab }: OverviewStatsProps) {
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 xl:gap-6 mb-8">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 xl:gap-6">
       {stats.map((stat, i) => (
         <Card 
            key={i} 

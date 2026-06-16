@@ -3,23 +3,31 @@ import { Search, MapPin, CheckCircle2, Clock, CheckSquare, ListTodo, User, Activ
 import { useStore, CareRecord } from "../store";
 
 export function CareLog() {
+  const tasks = useStore(state => state.tasks);
+  const updateTaskStatus = useStore(state => state.updateTaskStatus);
+  const staff = useStore(state => state.staff);
+  const staffList = staff.filter(s => s.role === '员工' || (s.position && s.position.includes('护理')));
+  
+  const [currentUser, setCurrentUser] = useState(staffList[0]?.name || "李雪");
   const [activeTab, setActiveTab] = useState('todo');
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [showScanner, setShowScanner] = useState(false);
+  const [showUserSelect, setShowUserSelect] = useState(false);
   
-  // Dummy tasks for the caregiver's day
-  const [myTasks, setMyTasks] = useState([
-    { id: "T-101", time: "08:30", type: "medical", title: "晨间血压测量", elder: "张明宇", room: "A栋-101床", status: "todo", desc: "测量并记录血压、心率数据", tags: ["空腹"] },
-    { id: "T-102", time: "09:00", type: "care", title: "协助服药", elder: "李秀红", room: "A栋-105床", status: "todo", desc: "降压药1片, 饭后温水送服", tags: ["必须看着服下"] },
-    { id: "T-103", time: "09:30", type: "care", title: "更换床单", elder: "赵大爷", room: "B栋-201床", status: "todo", desc: "常规每周更换", tags: ["保洁"] },
-    { id: "T-104", time: "10:30", type: "activity", title: "下肢康复协助", elder: "李秀红", room: "康复大厅", status: "todo", desc: "使用康复脚踏车15分钟", tags: ["需搀扶"] },
-    { id: "T-090", time: "07:30", type: "care", title: "送早饭", elder: "张明宇", room: "A栋-101床", status: "done", desc: "皮蛋瘦肉粥+鸡蛋", tags: [] },
-  ]);
+  const myTasks = tasks.filter(t => t.staff === currentUser).map(t => ({
+    ...t,
+    title: t.name || '未命名任务',
+    room: t.elder && typeof t.elder === 'string' && t.elder.includes('(') ? t.elder.split('(')[1].replace(')', '') : '未知房间',
+    elder: t.elder && typeof t.elder === 'string' ? t.elder.split(' ')[0] : '未知',
+    desc: (t as any).requirements || t.name || '无记录',
+    tags: t.type === 'medical' ? ['医疗护理'] : [],
+    status: t.status === 'completed' ? 'done' : 'todo'
+  }));
 
-  const currentTime = "08:45";
+  const currentTime = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 
   const handleComplete = (id: string, note?: string) => {
-    setMyTasks(tasks => tasks.map(t => t.id === id ? { ...t, status: 'done', completedAt: '08:46', note } : t));
+    updateTaskStatus(id, 'completed');
     setSelectedTask(null);
   };
 
@@ -39,16 +47,31 @@ export function CareLog() {
 
         {/* Header */}
         <div className="bg-indigo-600 pt-10 pb-4 px-5 text-white shrink-0 rounded-b-3xl shadow-md z-10 relative">
-          <div className="flex justify-between items-center mb-6">
-            <div className="flex items-center gap-3">
+          <div className="flex justify-between items-center mb-6 relative">
+            <div className="flex items-center gap-3" onClick={() => setShowUserSelect(!showUserSelect)}>
               <div className="w-10 h-10 rounded-full bg-white/20 border border-white/30 flex items-center justify-center font-bold overflow-hidden shadow-inner flex-shrink-0">
-                <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=transparent`} alt="avatar" className="w-full h-full object-cover" />
+                <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser}&backgroundColor=transparent`} alt="avatar" className="w-full h-full object-cover" />
               </div>
-              <div>
-                <h2 className="font-bold text-lg leading-tight">王阿姨，早安</h2>
-                <p className="text-indigo-200 text-xs flex items-center gap-1 font-medium"><MapPin className="w-3 h-3"/> A栋二层责任护工</p>
+              <div className="cursor-pointer">
+                <h2 className="font-bold text-lg leading-tight flex items-center gap-1">{currentUser}，早安 <ChevronRight className="w-4 h-4"/></h2>
+                <p className="text-indigo-200 text-xs flex items-center gap-1 font-medium"><MapPin className="w-3 h-3"/> 当前责任护工</p>
               </div>
             </div>
+            
+            {showUserSelect && (
+              <div className="absolute top-12 left-0 w-48 bg-white text-slate-800 rounded-lg shadow-xl z-[60] overflow-hidden">
+                {staffList.map(s => (
+                  <button 
+                    key={s.id} 
+                    onClick={() => { setCurrentUser(s.name); setShowUserSelect(false); }}
+                    className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 border-b border-slate-100 last:border-0"
+                  >
+                    {s.name} ({s.position})
+                  </button>
+                ))}
+              </div>
+            )}
+
             <button className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
               <Search className="w-4 h-4" />
             </button>
@@ -188,7 +211,7 @@ export function CareLog() {
                 <div className="flex-1 overflow-y-auto px-5 py-6">
                    <div className="flex items-center gap-4 mb-8 bg-slate-50 p-4 rounded-xl border border-slate-100">
                       <div className="w-14 h-14 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xl font-serif">
-                        {selectedTask.elder[0]}
+                        {(selectedTask.elder || '未')[0]}
                       </div>
                       <div>
                         <h4 className="font-bold text-slate-800 text-lg mb-0.5">{selectedTask.elder}</h4>

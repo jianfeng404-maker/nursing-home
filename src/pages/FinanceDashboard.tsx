@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Card, CardContent } from "../components/ui/card";
-import { CreditCard, TrendingUp, TrendingDown, PiggyBank, ArrowUpRight, ArrowDownRight, Wallet, Activity, ShieldAlert, Banknote, BarChart3, PieChart } from "lucide-react";
+import { CreditCard, TrendingUp, TrendingDown, PiggyBank, ArrowUpRight, ArrowDownRight, Wallet, Activity, ShieldAlert, Banknote, BarChart3, PieChart, CheckCircle2, History, AlertCircle } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar, Legend, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
+import { useStore } from "../store";
 
 interface FinanceDashboardProps {
   setActiveTab?: (tab: string) => void;
@@ -9,6 +10,22 @@ interface FinanceDashboardProps {
 
 export function FinanceDashboard({ setActiveTab }: FinanceDashboardProps) {
   const [timeRange, setTimeRange] = useState('month');
+  const bills = useStore(state => state.bills);
+
+  // Derived Pipeline metrics
+  const toCheckBills = bills.filter(b => b.status === "待核对");
+  const toPayBills = bills.filter(b => b.status === "已核发 (待缴款)" || b.status === "未缴费");
+  const paidBills = bills.filter(b => b.status === "已缴费" || b.status === "已结清");
+  const overdueBills = bills.filter(b => b.status === "逾期未缴");
+
+  const sumAmt = (arr: any[]) => arr.reduce((acc, b) => acc + parseFloat(String(b.total || "0").replace(/,/g, '')), 0);
+
+  const pipelineStages = [
+    { id: 'check', title: '待核对账单', count: toCheckBills.length, amount: sumAmt(toCheckBills), icon: History, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-200', target: 'billing' },
+    { id: 'pay', title: '已核发(待缴款)', count: toPayBills.length, amount: sumAmt(toPayBills), icon: Wallet, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', target: 'billing' },
+    { id: 'overdue', title: '逾期欠费预警', count: overdueBills.length, amount: sumAmt(overdueBills), icon: AlertCircle, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-200', target: 'payment_settle' },
+    { id: 'paid', title: '已缴款到账', count: paidBills.length, amount: sumAmt(paidBills), icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', target: 'payment_settle' }
+  ];
 
   // 模拟数据
   const revenueTrend = [
@@ -40,19 +57,24 @@ export function FinanceDashboard({ setActiveTab }: FinanceDashboardProps) {
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
   const EXPENSE_COLORS = ['#f43f5e', '#ef4444', '#f97316', '#eab308', '#64748b'];
 
-  const pendingBills = [
-    { id: 'BILL-001', elder: '王大山', type: '月账单', amount: 8450, dueDate: '2026-05-05', status: '待缴' },
-    { id: 'BILL-002', elder: '李秀红', type: '补缴押金', amount: 20000, dueDate: '2026-05-02', status: '催缴中' },
-    { id: 'BILL-003', elder: '赵四海', type: '月账单', amount: 7600, dueDate: '2026-05-06', status: '待缴' },
-  ];
+  const pendingBills = [...overdueBills, ...toPayBills, ...bills.filter(b => b.status === "已核发 (待缴款)")]
+    .slice(0, 3)
+    .map(b => ({
+      id: b.id,
+      elder: b.elder,
+      type: b.period.includes('月') ? '月账单' : '账单',
+      amount: parseFloat(String(b.total || "0").replace(/,/g, '')),
+      dueDate: b.dueDate || 'N/A',
+      status: b.status === '逾期未缴' ? '催缴中' : '待缴'
+    }));
 
   return (
     <div className="animate-in fade-in duration-500 pb-8 h-full flex flex-col">
       <div className="flex justify-between items-end mb-6 shrink-0">
         <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">财务数据大盘中台</h2>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight">财务大盘与管线中台</h2>
           <span className="text-sm font-medium text-slate-500 mt-1.5 block">
-            全局资金流向监控、收支组成分析、资金池异动追踪
+            全局资金流向监控、收支组成分析、一站式结算管线全览
           </span>
         </div>
         <div className="flex gap-2 bg-slate-100/50 p-1 rounded-xl">
@@ -63,15 +85,42 @@ export function FinanceDashboard({ setActiveTab }: FinanceDashboardProps) {
           <button 
              onClick={() => setTimeRange('month')}
              className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${timeRange === 'month' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-          >本月</button>
+          >本月汇总</button>
           <button 
              onClick={() => setTimeRange('year')}
              className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${timeRange === 'year' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-          >本年年度</button>
+          >年度财报</button>
         </div>
       </div>
 
-      {/* Top Value Cards */}
+      {/* 财务工作流水线 Pipeline */}
+      <h3 className="font-bold text-slate-800 text-lg mb-4 flex items-center gap-2">
+         <Activity className="w-5 h-5 text-indigo-600"/> 实事财务结算管线
+      </h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 xl:gap-6 mb-8 shrink-0">
+        {pipelineStages.map((stage, idx) => (
+           <Card key={stage.id} className="border-none shadow-sm hover:-translate-y-1 hover:shadow-md transition-all cursor-pointer relative overflow-hidden" onClick={() => setActiveTab && setActiveTab(stage.target)}>
+              <CardContent className="p-5 flex items-center justify-between">
+                 <div>
+                    <p className="text-sm font-semibold text-slate-500 mb-1">{stage.title}</p>
+                    <div className="flex items-baseline gap-2">
+                       <h3 className="text-3xl font-black text-slate-800">{stage.count}</h3>
+                       <span className="text-xs font-bold text-slate-400">单</span>
+                    </div>
+                 </div>
+                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${stage.bg} ${stage.color} border ${stage.border}`}>
+                    <stage.icon className="w-6 h-6" strokeWidth={2.5} />
+                 </div>
+              </CardContent>
+              <div className="px-5 py-3 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between text-xs">
+                 <span className="font-medium text-slate-500">累计本金金额</span>
+                 <span className={`font-mono font-bold text-sm ${stage.amount > 0 ? stage.color : 'text-slate-400'}`}>
+                    ¥ {stage.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                 </span>
+              </div>
+           </Card>
+        ))}
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 shrink-0">
         <div 
            className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden cursor-pointer hover:shadow-xl transition-shadow"

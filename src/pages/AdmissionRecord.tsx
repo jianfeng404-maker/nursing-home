@@ -1,23 +1,22 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { UserPlus, Search, ClipboardList, Bed, FileText, CreditCard, CheckCircle2, User, X, ArrowRight, ShieldAlert, PiggyBank, ReceiptText } from "lucide-react";
+import { UserPlus, Search, ClipboardList, Bed, FileText, CreditCard, CheckCircle2, User, X, ArrowRight, ShieldAlert, PiggyBank, ReceiptText, Key } from "lucide-react";
+import { useStore, AdmissionRecordType } from "../store";
 
 export function AdmissionRecord() {
   const [showProcessModal, setShowProcessModal] = useState(false);
-  const [selectedAdmit, setSelectedAdmit] = useState<any>(null);
+  const [selectedAdmit, setSelectedAdmit] = useState<AdmissionRecordType | null>(null);
   const [activeStepId, setActiveStepId] = useState<string>('info');
 
-  const [admissions, setAdmissions] = useState([
-    { id: "ADM-20231102-01", name: "张明宇", assessmentLevel: "二级护理", family: "张小强", phone: "13800138000", idCard: "1101051945XXXXXXXX", status: "processing", progress: { info: true, bed: true, contract: false, payment: false } },
-    { id: "ADM-20231030-01", name: "李秀红", assessmentLevel: "认知症专护", family: "王芳", phone: "13900139000", idCard: "1101081950XXXXXXXX", status: "pending", progress: { info: false, bed: false, contract: false, payment: false } },
-    { id: "ADM-20231028-02", name: "王大山", assessmentLevel: "自理", family: "王建国", phone: "13700137000", idCard: "1101011940XXXXXXXX", status: "completed", progress: { info: true, bed: true, contract: true, payment: true }, roombed: "B栋-302-01" },
-  ]);
+  const admissions = useStore(state => state.admissions);
+  const updateAdmission = useStore(state => state.updateAdmission);
 
   const stepsList = [
     { id: 'info', label: '基础信息核对', icon: User },
     { id: 'bed', label: '分配床位', icon: Bed },
     { id: 'contract', label: '电子合同签署', icon: FileText },
-    { id: 'payment', label: '初始费用缴纳', icon: CreditCard }
+    { id: 'payment', label: '初始费用缴纳', icon: CreditCard },
+    { id: 'access', label: '门禁与通行授权', icon: Key }
   ];
 
   const handleOpenProcess = (record: any) => {
@@ -40,13 +39,79 @@ export function AdmissionRecord() {
     const updatedStatus = stepsList.every(s => updatedProgress[s.id]) ? 'completed' : 'processing';
     
     const updatedAdmit = {
-        ...selectedAdmit,
+        ...selectedAdmit!,
         progress: updatedProgress,
-        status: updatedStatus
+        status: updatedStatus as 'pending' | 'processing' | 'completed'
     };
     
     setSelectedAdmit(updatedAdmit);
-    setAdmissions(prev => prev.map(a => a.id === updatedAdmit.id ? updatedAdmit : a));
+    updateAdmission(updatedAdmit.id, updatedAdmit);
+
+    if (stepId === 'payment') {
+       // Create an initial deposit/admission bill
+       useStore.getState().addBill({
+         id: `BILL-ADM-${new Date().toISOString().replace(/\D/g,'').slice(0,8)}-${Math.floor(Math.random() * 900 + 100)}`,
+         elder: updatedAdmit.name,
+         room: updatedAdmit.roombed || "A栋203-1床",
+         period: "入住初始费用 (押金与首月预收)",
+         dueDate: new Date().toISOString().split('T')[0],
+         status: "已缴费",
+         total: "28,500.00",
+         items: [
+            { name: "医疗备用金/押金", amount: "20,000.00", type: "fixed" },
+            { name: "首月预收床位费", amount: "5,000.00", type: "fixed" },
+            { name: "首月预收护理费", amount: "2,000.00", type: "fixed" },
+            { name: "生活用品代购集锦", amount: "1,500.00", type: "fixed" }
+         ]
+       });
+
+       const idCardStr = updatedAdmit.idCard || "110105194512311234";
+       const birthYear = parseInt(idCardStr.slice(6, 10)) || 1945;
+       const genderDigit = parseInt(idCardStr.slice(16, 17)) || 1;
+       const age = new Date().getFullYear() - birthYear;
+       const gender = genderDigit % 2 === 0 ? "女" : "男";
+       const elderId = `E-${new Date().getFullYear()}${(new Date().getMonth()+1).toString().padStart(2, '0')}-${Math.floor(Math.random() * 900 + 100)}`;
+
+       useStore.getState().addElder({
+         id: elderId,
+         name: updatedAdmit.name,
+         room: updatedAdmit.roombed || "A栋203-1床",
+         age: age,
+         gender: gender,
+         careLevel: updatedAdmit.assessmentLevel,
+         healthStatus: "稳定",
+         admissionDate: new Date().toISOString().split('T')[0]
+       });
+
+       const emptyBed = useStore.getState().beds.find(b => b.status === 'empty');
+       if (emptyBed) {
+         useStore.getState().updateBed(emptyBed.id, {
+           status: 'occupied',
+           elderId: elderId
+         });
+       }
+
+       // Auto-assign some onboarding tasks
+       useStore.getState().addTask({
+         id: `TSK-ONB-${Date.now()}-1`,
+         name: "新入住长者生活用具发放与房间指引",
+         elder: `${updatedAdmit.name} (${updatedAdmit.roombed || "A栋203-1床"})`,
+         time: "14:00",
+         staff: "未指派", // Goes to public pool
+         status: "pending",
+         type: "care"
+       });
+       
+       useStore.getState().addTask({
+         id: `TSK-ONB-${Date.now()}-2`,
+         name: "新住户健康档案基础生命体征测量建档",
+         elder: `${updatedAdmit.name} (${updatedAdmit.roombed || "A栋203-1床"})`,
+         time: "15:00",
+         staff: "未指派",
+         status: "pending",
+         type: "medical"
+       });
+    }
 
     const idx = stepsList.findIndex(s => s.id === stepId);
     if (idx < stepsList.length - 1) {
@@ -92,7 +157,7 @@ export function AdmissionRecord() {
                <CheckCircle2 className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-0.5">已入驻(本月)</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-0.5">已入住(本月)</p>
               <h3 className="text-2xl font-black text-slate-800">{admissions.filter(a => a.status === 'completed').length}</h3>
             </div>
           </CardContent>
@@ -158,13 +223,13 @@ export function AdmissionRecord() {
                     }`}>
                       {item.status === 'pending' && "等待办理"}
                       {item.status === 'processing' && "办理中"}
-                      {item.status === 'completed' && "入驻成功"}
+                      {item.status === 'completed' && "入住成功"}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
                     {item.status === 'completed' ? (
                        <button className="text-slate-600 font-bold text-xs border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors bg-white shadow-sm whitespace-nowrap">
-                        查看入驻单
+                        查看入住单
                       </button>
                     ) : (
                       <button onClick={() => handleOpenProcess(item)} className="text-white bg-blue-600 hover:bg-blue-700 font-bold text-xs px-3 py-1.5 rounded-lg transition-colors shadow-sm whitespace-nowrap">
@@ -230,7 +295,7 @@ export function AdmissionRecord() {
                        <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-6">
                            <CheckCircle2 className="w-10 h-10" />
                        </div>
-                       <h3 className="text-2xl font-black text-slate-800 mb-3">长者入驻办理已完成</h3>
+                       <h3 className="text-2xl font-black text-slate-800 mb-3">长者入住办理已完成</h3>
                        <p className="text-slate-500 text-sm mb-8 font-medium leading-relaxed">入住流程全部结束。系统已自动同步该订单产生的账单流水至财务中心，请相关财务人员核对。并向护理、后勤等部门分发了待办工作。</p>
                        <button onClick={() => setShowProcessModal(false)} className="w-full py-3 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 shadow-md">
                          完成并关闭窗口
@@ -444,7 +509,65 @@ export function AdmissionRecord() {
 
                                <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
                                   <button onClick={() => handleCompleteStep('payment')} className="px-8 py-3 text-sm font-black text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-lg flex items-center gap-2 transition-transform active:scale-95">
-                                     代签收首笔款项并建账 <CheckCircle2 className="w-5 h-5" />
+                                     代签收首笔款项并建账 <ArrowRight className="w-5 h-5" />
+                                  </button>
+                               </div>
+                           </div>
+                       )}
+
+                       {/* Step 5: Access Control */}
+                       {activeStepId === 'access' && (
+                           <div className="space-y-6">
+                               <div>
+                                 <h2 className="text-2xl font-black text-slate-800 mb-2">自动下发门禁与通行授权</h2>
+                                 <p className="text-sm font-medium text-slate-500">入住手续即将完毕，系统将基于长者的入住楼宇与护理区域，<span className="text-indigo-600 font-bold">自动为其生成门禁通行白名单</span>，并下发至各出入闸机及门禁终端。</p>
+                               </div>
+                               
+                               <div className="bg-indigo-50/50 border border-indigo-100 p-5 rounded-2xl">
+                                  <div className="flex items-center gap-2 mb-4">
+                                     <Key className="w-5 h-5 text-indigo-500" />
+                                     <h3 className="font-bold text-indigo-900">拟下发通行权限</h3>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-3">
+                                     <div className="bg-white border text-sm border-indigo-100 p-3 rounded-lg flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0"><CheckCircle2 className="w-4 h-4" /></div>
+                                        <div>
+                                           <div className="font-bold text-slate-800">园区正大门 / 访客通道</div>
+                                           <div className="text-xs text-slate-500">24小时通行</div>
+                                        </div>
+                                     </div>
+                                     <div className="bg-white border text-sm border-indigo-100 p-3 rounded-lg flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0"><CheckCircle2 className="w-4 h-4" /></div>
+                                        <div>
+                                           <div className="font-bold text-slate-800">本栋大厅闸机及电梯</div>
+                                           <div className="text-xs text-slate-500">依据门禁卡或人脸识别</div>
+                                        </div>
+                                     </div>
+                                     <div className="bg-white border text-sm border-indigo-100 p-3 rounded-lg flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0"><CheckCircle2 className="w-4 h-4" /></div>
+                                        <div>
+                                           <div className="font-bold text-slate-800">公共活动室 / 餐厅</div>
+                                           <div className="text-xs text-slate-500">07:00 ~ 21:00 开放</div>
+                                        </div>
+                                     </div>
+                                     <div className="bg-white border text-sm border-slate-200 p-3 rounded-lg flex items-center gap-3 opacity-60">
+                                        <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center shrink-0"><X className="w-4 h-4" /></div>
+                                        <div>
+                                           <div className="font-bold text-slate-800 line-through">高危区域 / 库房 / 顶楼</div>
+                                           <div className="text-xs text-slate-500">无通行权限</div>
+                                        </div>
+                                     </div>
+                                  </div>
+                                  
+                                  <div className="mt-4 flex items-center gap-2 text-xs font-bold text-indigo-600 bg-indigo-100/50 p-2 rounded">
+                                     <ShieldAlert className="w-4 h-4" />
+                                     注：当长者办理“退住离院”或其护理状态变更为“重症监护”时，系统会自动回收相关涉险区域的通行权限。
+                                  </div>
+                               </div>
+
+                               <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
+                                  <button onClick={() => handleCompleteStep('access')} className="px-8 py-3 text-sm font-black text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-lg flex items-center gap-2 transition-transform active:scale-95">
+                                     下发权限并完成入住 <CheckCircle2 className="w-5 h-5" />
                                   </button>
                                </div>
                            </div>

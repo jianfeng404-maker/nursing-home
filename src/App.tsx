@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { Toaster } from 'sonner';
+import { Toaster, toast } from 'sonner';
 import { useStore } from './store';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { Dashboard } from './pages/Dashboard';
-import { useFirebase } from './hooks/useFirebase';
+import { io } from 'socket.io-client';
+
+// Only connect when authenticated
+const socket = io('/', { autoConnect: false });
 
 import { LoginForm } from './components/LoginForm';
 
 // imports...
+
 import { TaskDispatch } from './pages/TaskDispatch';
 import { MarketingReception } from './pages/MarketingReception';
 import { CustomerArchives } from './pages/CustomerArchives';
@@ -41,8 +45,11 @@ import { FinanceDashboard } from './pages/FinanceDashboard';
 import { FeeItems } from './pages/FeeItems';
 import { DepositManage } from './pages/DepositManage';
 import { PaymentSettle } from './pages/PaymentSettle';
+import { InsuranceSettle } from './pages/InsuranceSettle';
 import { Billing } from './pages/Billing';
 import { InvoiceManage } from './pages/InvoiceManage';
+import { AdmissionPayment } from './pages/AdmissionPayment';
+import { DischargeRefund } from './pages/DischargeRefund';
 import { MaterialManage } from './pages/MaterialManage';
 import { InventoryManage } from './pages/InventoryManage';
 import { Procurement } from './pages/Procurement';
@@ -67,20 +74,74 @@ import { DevDeploy } from './pages/DevDeploy';
 import { DevSecurity } from './pages/DevSecurity';
 
 import { IotDashboard } from './pages/IotDashboard';
+import { CommandCenter } from './pages/CommandCenter';
 import { SecurityCamera } from './pages/SecurityCamera';
 import { SecurityAccess } from './pages/SecurityAccess';
 import { SecurityGeofence } from './pages/SecurityGeofence';
 import { ContractManage } from './pages/ContractManage';
 import { MaterialConsume } from './pages/MaterialConsume';
 import { MedicationManage } from './pages/MedicationManage';
-import { useFirestoreSync } from './hooks/useFirestoreSync';
+import { RehabPlan } from './pages/RehabPlan';
+import { DoctorRounds } from './pages/DoctorRounds';
+import { ClinicalRecords } from './pages/ClinicalRecords';
 
 export default function App() {
-  useFirestoreSync(); // sync without user constraint
-
   const [activeTab, setActiveTab] = useState('overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [visitedTabs, setVisitedTabs] = useState<Set<string>>(new Set(['overview']));
+  const { nursingStations } = useStore();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      fetch('/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      .then(res => {
+        if (res.ok) {
+          setIsAuthenticated(true);
+        } else {
+          localStorage.removeItem('token');
+        }
+      })
+      .catch(console.error)
+      .finally(() => setIsAuthLoading(false));
+    } else {
+      setIsAuthLoading(false);
+    }
+  }, []);
+
+  const [isDataLoading, setIsDataLoading] = useState(true);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+        useStore.getState().fetchInitialData().then(() => {
+            setIsDataLoading(false);
+        });
+        
+        const token = localStorage.getItem('token');
+        if (token) {
+          socket.auth = { token };
+          socket.connect();
+        }
+        
+        socket.on('new-task', (task) => {
+          toast.info(`新任务: ${task.name}`, { description: `执行人: ${task.staff}` });
+        });
+        
+        socket.on('new-alert', (alert) => {
+          toast.error(`紧急告警: ${alert.title}`, { description: `位置: ${alert.location}`});
+        });
+
+        return () => {
+          socket.disconnect();
+          socket.off('new-task');
+          socket.off('new-alert');
+        };
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     setVisitedTabs(prev => {
@@ -95,7 +156,7 @@ const pages: Record<string, React.ReactNode> = {
   'overview': <Dashboard />,
   'dispatch': <TaskDispatch />,
   'nurse_station': <NurseStation setActiveTab={setActiveTab} />,
-  'marketing': <MarketingReception />,
+  'marketing': <MarketingReception setActiveTab={setActiveTab} />,
   'customer_archives': <CustomerArchives />,
   'complaints': <Complaints />,
   'admission_assess': <AdmissionAssess />,
@@ -111,26 +172,33 @@ const pages: Record<string, React.ReactNode> = {
   'care_assess': <CareAssess />,
   'care_plan': <CarePlan setActiveTab={setActiveTab} />,
   'care_tasks': <CareTasks />,
-  'care_log': <CareLog />,
+  'care_log': <CareLog key="care_log" />,
   'care_record': <CareRecord />,
   'security_camera': <SecurityCamera />,
   'security_access': <SecurityAccess />,
   'security_geofence': <SecurityGeofence />,
-  'iot_dashboard': <IotDashboard />,
+  'iot_dashboard': <IotDashboard setActiveTab={setActiveTab} />,
+  'command_center': <CommandCenter setActiveTab={setActiveTab} />,
   'iot_catalog': <IoTCatalog />,
   'iot_instances': <IoTInstances />,
   'alert_rules_config': <AlertRulesConfig />,
   'call_monitor': <CallMonitor />,
   'call_history': <CallHistory />,
   'finance_dashboard': <FinanceDashboard />,
+  'admission_payment': <AdmissionPayment />,
+  'discharge_refund': <DischargeRefund />,
   'fee_items': <FeeItems />,
   'deposit_manage': <DepositManage />,
   'payment_settle': <PaymentSettle />,
+  'insurance_settle': <InsuranceSettle />,
   'billing': <Billing />,
   'invoice_manage': <InvoiceManage />,
   'contract_manage': <ContractManage />,
   'material_consume': <MaterialConsume />,
   'medication_manage': <MedicationManage />,
+  'rehab_plan': <RehabPlan />,
+  'doctor_rounds': <DoctorRounds />,
+  'clinical_records': <ClinicalRecords />,
   'material_manage': <MaterialManage />,
   'inventory_manage': <InventoryManage />,
   'procurement': <Procurement />,
@@ -153,27 +221,54 @@ const pages: Record<string, React.ReactNode> = {
   'dev_security': <DevSecurity />
 };
 
+nursingStations.forEach(station => {
+  pages[`nurse_station_${station.id}`] = <NurseStation setActiveTab={setActiveTab} stationId={station.id} />;
+});
+
+  if (isAuthLoading || (isAuthenticated && isDataLoading)) {
+    return <div className="h-screen w-full flex items-center justify-center bg-slate-50 text-slate-500">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+        <span>系统数据同步中...</span>
+      </div>
+    </div>;
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-slate-100">
+        <Toaster position="top-right" richColors closeButton duration={3000} />
+        <LoginForm />
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 font-sans text-slate-800">
       <Toaster position="top-right" richColors closeButton duration={3000} />
-      <Sidebar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        isOpen={isSidebarOpen} 
-        setIsOpen={setIsSidebarOpen} 
-      />
+      
+      {activeTab !== 'command_center' && (
+        <Sidebar 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          isOpen={isSidebarOpen} 
+          setIsOpen={setIsSidebarOpen} 
+        />
+      )}
       
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">
-        <Header onMenuClick={() => setIsSidebarOpen(true)} />
+        {activeTab !== 'command_center' && (
+          <Header onMenuClick={() => setIsSidebarOpen(true)} />
+        )}
         
-        <main className="flex-1 overflow-hidden relative content-container min-h-0 bg-slate-50/50">
+        <main className={`flex-1 overflow-hidden relative content-container min-h-0 ${activeTab === 'command_center' ? 'bg-slate-950 p-0' : 'bg-slate-50/50'}`}>
           {Object.entries(pages).map(([key, component]) => {
             if (!visitedTabs.has(key)) return null;
             return (
               <div 
                 key={key} 
                 style={{ display: activeTab === key ? 'block' : 'none' }} 
-                className="h-full w-full overflow-y-auto p-4 sm:p-6 md:p-8 hidden-scrollbar"
+                className={`h-full w-full hidden-scrollbar ${(activeTab === 'command_center' || activeTab === 'overview') ? 'p-0 overflow-hidden' : 'overflow-y-auto p-4 sm:p-6 md:p-8'}`}
               >
                 {component}
               </div>

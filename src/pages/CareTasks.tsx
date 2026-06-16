@@ -1,51 +1,48 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Calendar as CalendarIcon, CheckSquare, Clock, Filter, Plus, Search, User, X, ClipboardType, ArrowRightLeft, Smartphone, RefreshCw, ConciergeBell, Info } from "lucide-react";
+import { useStore } from "../store";
+import { toast } from "sonner";
 
 export function CareTasks() {
   const [activeDate, setActiveDate] = useState('today');
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
-  const [newTask, setNewTask] = useState({ name: '', elder: '无需关联', time: '12:00', assignTo: 'pool' });
+  const [newTask, setNewTask] = useState({ name: '', elder: '无需关联', time: '12:00', date: '', assignTo: 'pool', fee: 0 });
 
-  // Grouped tasks by station/person to show dispatch logic clearly
-  const [dispatchGroups, setDispatchGroups] = useState([
-    {
-      station: "A栋-全自理区护理组",
-      staff: "张阿姨 (早班)",
-      status: "在线",
-      syncTime: "刚刚同步",
-      tasks: [
-        { id: "T-001", elder: "李秀红 (A-105)", time: "08:30", type: "生活", name: "晨间辅助洗漱", status: "done" },
-        { id: "T-002", elder: "王建国 (A-108)", time: "10:00", type: "巡视", name: "常规生命体征测量", status: "todo" },
-      ]
-    },
-    {
-      station: "B栋-半失能专区",
-      staff: "王护士 (白班)",
-      status: "在线",
-      syncTime: "5分钟前",
-      tasks: [
-        { id: "T-015", elder: "赵大爷 (B-201)", time: "09:30", type: "医疗", name: "协助服药 (抗高血压)", status: "done" },
-        { id: "T-016", elder: "刘奶奶 (B-205)", time: "11:00", type: "护理", name: "翻身拍背及压疮防范", status: "todo" },
-        { id: "T-017", elder: "张老太 (B-206)", time: "12:00", type: "生活", name: "鼻饲喂食 (午餐)", status: "todo" },
-      ]
-    },
-    {
-      station: "康复理疗组 (跨区)",
-      staff: "李康复师",
-      status: "离线",
-      syncTime: "未同步",
-      tasks: [
-        { id: "T-088", elder: "赵大爷 (B-201)", time: "14:30", type: "康复", name: "下肢关节活动度训练", status: "todo" },
-        { id: "T-089", elder: "李秀红 (A-105)", time: "15:30", type: "康复", name: "红外线理疗", status: "todo" },
-      ]
-    }
-  ]);
+  const tasks = useStore(state => state.tasks);
+  const addBill = useStore(state => state.addBill);
+  const staff = useStore(state => state.staff);
+  const updateTaskStaff = useStore(state => state.updateTaskStaff);
+  const addTask = useStore(state => state.addTask);
+  const updateTaskStatus = useStore(state => state.updateTaskStatus);
 
-  const [unassignedTasks, setUnassignedTasks] = useState([
-    { id: "T-901", elder: "孙奶奶 (C-302)", time: "随时", type: "临时", name: "家属送来水果，需协助清洗切块" },
-    { id: "T-902", elder: "吴大爷 (A-102)", time: "16:00", type: "生活", name: "要求更换较厚的被被子" }
-  ]);
+  // Grouped tasks by department
+  const departmentGroups = useMemo(() => {
+    const relevantStaff = staff.filter(s => s.position.includes('护理') || s.position.includes('护工') || s.position.includes('康复') || s.position.includes('医'));
+    
+    type GroupInfo = { dept: string, staffList: any[] };
+    const groups: Record<string, GroupInfo> = {};
+    
+    relevantStaff.forEach(s => {
+      if (!groups[s.dept]) {
+        groups[s.dept] = { dept: s.dept, staffList: [] };
+      }
+      
+      const assignedTasks = tasks.filter(t => t.staff === s.name);
+      groups[s.dept].staffList.push({
+        staff: s.name,
+        status: s.status,
+        syncTime: s.status === '在线' ? '刚刚同步' : '未同步',
+        tasks: assignedTasks
+      });
+    });
+    
+    return Object.values(groups);
+  }, [staff, tasks]);
+
+  const unassignedTasks = useMemo(() => {
+    return tasks.filter(t => !t.staff || t.staff === '未指派' || t.staff === '待指派' || t.staff === '自动排程未指派');
+  }, [tasks]);
 
   const [taskToAssign, setTaskToAssign] = useState<any>(null);
   const [assignTarget, setAssignTarget] = useState<string>('');
@@ -142,53 +139,84 @@ export function CareTasks() {
 
          {/* 右侧：护工分工看板 */}
          <div className="flex-1 flex overflow-x-auto gap-5 pb-4 snap-x custom-scrollbar">
-            {dispatchGroups.map((group, idx) => (
-               <div key={idx} className="min-w-[320px] max-w-[320px] bg-slate-50 border border-slate-200 rounded-2xl flex flex-col shrink-0 snap-start">
+            {departmentGroups.map((group, idx) => (
+               <div key={idx} className="min-w-[340px] max-w-[380px] bg-slate-50 border border-slate-200 rounded-2xl flex flex-col shrink-0 snap-start">
                   <div className="p-4 bg-white border-b border-slate-200 rounded-t-2xl shrink-0">
-                     <h3 className="font-black text-slate-800 mb-1">{group.station}</h3>
-                     <div className="flex items-center justify-between">
-                        <div className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
-                           <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs">{group.staff[0]}</div>
-                           {group.staff}
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                           <span className={`w-2 h-2 rounded-full ${group.status === '在线' ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
-                           <span className="text-[10px] font-bold text-slate-400">{group.syncTime}</span>
-                        </div>
-                     </div>
+                     <h3 className="font-black text-slate-800 flex items-center justify-between">{group.dept} <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{group.staffList.length} 名在岗</span></h3>
                   </div>
                   
-                  <div className="p-3 flex-1 overflow-y-auto custom-scrollbar space-y-3">
-                     {group.tasks.map(task => (
-                        <div key={task.id} className={`bg-white rounded-xl p-3 border transition-all ${task.status === 'done' ? 'border-emerald-100 bg-emerald-50/30 opacity-70' : 'border-slate-200 shadow-sm'}`}>
-                           <div className="flex justify-between items-start mb-2">
-                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
-                                 task.type === '医疗' ? 'bg-sky-50 text-sky-600 border-sky-100' : 
-                                 task.type === '生活' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
-                                 'bg-slate-50 text-slate-600 border-slate-200'
-                              }`}>
-                                 {task.type}
-                              </span>
+                  <div className="p-3 flex-1 overflow-y-auto custom-scrollbar space-y-4">
+                     {group.staffList.map((member: any, sIdx: number) => (
+                        <div key={sIdx} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                           <div className="flex items-center justify-between p-2.5 bg-slate-50 border-b border-slate-100 shrink-0">
+                              <div className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+                                 <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-black text-xs">{member.staff[0]}</div>
+                                 {member.staff}
+                              </div>
                               <div className="flex items-center gap-1.5">
-                                 {task.status === 'done' && <CheckSquare className="w-3.5 h-3.5 text-emerald-500" />}
-                                 <span className={`text-xs font-mono font-bold ${task.status === 'done' ? 'text-emerald-600' : 'text-slate-500'}`}>
-                                    {task.time}
-                                 </span>
+                                 <span className={`w-2 h-2 rounded-full ${member.status === '在线' ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
+                                 <span className="text-[10px] font-bold text-slate-400">{member.syncTime}</span>
                               </div>
                            </div>
-                           <h4 className={`font-bold text-sm mb-1 ${task.status === 'done' ? 'text-slate-600 line-through' : 'text-slate-800'}`}>{task.name}</h4>
-                           <div className="text-xs text-slate-500 flex items-center justify-between">
-                              <span className="flex items-center gap-1 line-clamp-1"><User className="w-3 h-3" /> {task.elder}</span>
+                           <div className="p-2.5 space-y-2.5 flex-1 bg-white">
+                              {member.tasks.length === 0 ? (
+                                 <div className="text-xs text-slate-400 text-center py-2">暂无派发工单</div>
+                              ) : member.tasks.map((task: any) => (
+                                 <div key={task.id} className={`rounded-xl p-3 border transition-all ${task.status === 'completed' ? 'border-emerald-100 bg-emerald-50/30 opacity-70' : 'border-slate-200 bg-white shadow-sm'}`}>
+                                    <div className="flex justify-between items-start mb-2">
+                                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                                          task.type === 'medical' ? 'bg-sky-50 text-sky-600 border-sky-100' : 
+                                          task.type === 'care' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
+                                          'bg-slate-50 text-slate-600 border-slate-200'
+                                       }`}>
+                                          {task.type}
+                                       </span>
+                                       <div className="flex items-center gap-1.5">
+                                          {task.status === 'completed' && <CheckSquare className="w-3.5 h-3.5 text-emerald-500" />}
+                                          <span className={`text-xs font-mono font-bold ${task.status === 'completed' ? 'text-emerald-600' : 'text-slate-500'}`}>
+                                             {task.time}
+                                          </span>
+                                       </div>
+                                    </div>
+                                    <h4 className={`font-bold text-sm mb-1 ${task.status === 'completed' ? 'text-slate-600 line-through' : 'text-slate-800'}`}>{task.name}</h4>
+                                    <div className="text-xs text-slate-500 flex items-center justify-between">
+                                       <span className="flex items-center gap-1 line-clamp-1"><User className="w-3 h-3" /> {task.elder}</span>
+                                    </div>
+                                    
+                                    {task.status !== 'completed' && (
+                                       <div className="mt-3 pt-2 border-t border-slate-100 flex justify-between">
+                                          <button className="text-[11px] font-bold text-slate-400 hover:text-indigo-600 flex items-center gap-1 transition-colors">
+                                             <ArrowRightLeft className="w-3 h-3" /> 换人
+                                          </button>
+                                          <button 
+                                           onClick={() => {
+                                                updateTaskStatus(task.id, 'completed');
+                                                if ((task as any).fee > 0) {
+                                                    addBill({
+                                                        id: `BILL-TSK-${new Date().toISOString().replace(/\D/g, '').slice(0, 8)}-${Math.floor(Math.random() * 90 + 10)}`,
+                                                        elder: task.elder ? task.elder.split(' (')[0] || task.elder : '未知',
+                                                        room: task.elder && task.elder.includes(' (') ? task.elder.split(' (')[1]?.replace(')', '') : '未知',
+                                                        period: "护理临时服务项",
+                                                        dueDate: new Date().toISOString().split('T')[0],
+                                                        status: "未缴费",
+                                                        total: (task as any).fee,
+                                                        items: [
+                                                            { name: task.name, amount: (task as any).fee.toString(), type: "service" }
+                                                        ]
+                                                    });
+                                                    toast.success(`工单已完成！员工 ${task.staff} 绩效已记录，并向长者生成 ￥${(task as any).fee} 账单`);
+                                                } else {
+                                                    toast.success(`工单已完成！系统已记录员工 ${task.staff} 绩效。`);
+                                                }
+                                           }}
+                                           className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 transition-colors bg-emerald-50 px-2 py-1 rounded">
+                                           标记完成
+                                          </button>
+                                       </div>
+                                    )}
+                                 </div>
+                              ))}
                            </div>
-                           
-                           {task.status !== 'done' && (
-                              <div className="mt-3 pt-2 border-t border-slate-100 flex justify-between">
-                                 <button className="text-xs font-bold text-slate-400 hover:text-indigo-600 flex items-center gap-1 transition-colors">
-                                    <ArrowRightLeft className="w-3 h-3" /> 换人
-                                 </button>
-                                 <button className="text-xs font-bold text-slate-400 hover:text-rose-600 transition-colors">撤销</button>
-                              </div>
-                           )}
                         </div>
                      ))}
                   </div>
@@ -236,11 +264,21 @@ export function CareTasks() {
                 </div>
 
                 <div className="space-y-1.5">
+                  <label className="text-sm font-bold text-slate-700">附加收费金额 (元)可选</label>
+                  <input type="number" value={newTask.fee} onChange={e => setNewTask({...newTask, fee: parseFloat(e.target.value) || 0})} className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-colors" placeholder="无需收费填0" />
+                  <p className="text-xs text-slate-500 mt-1">如输入金额，完成工单时系统将自动生成财务应收账单项并计入人员绩效金库。</p>
+                </div>
+
+                <div className="space-y-1.5">
                   <label className="text-sm font-bold text-slate-700">指派给谁执行 *</label>
                   <select value={newTask.assignTo} onChange={e => setNewTask({...newTask, assignTo: e.target.value})} className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-colors">
                      <option value="pool">放入待分派池 (抢单/主管后续指派)</option>
-                     {dispatchGroups.map((g, i) => (
-                        <option key={i} value={g.staff}>{g.station} - {g.staff}</option>
+                     {departmentGroups.map((g, i) => (
+                        <optgroup key={i} label={g.dept}>
+                           {g.staffList.map((m: any, j: number) => (
+                              <option key={j} value={m.staff}>{m.staff}</option>
+                           ))}
+                        </optgroup>
                      ))}
                   </select>
                   <p className="text-xs text-slate-500 mt-1">选择具体人员后，工单将立刻通过推送通知下发到其移动设备。</p>
@@ -256,22 +294,15 @@ export function CareTasks() {
                         id: `T-${Math.floor(Math.random() * 1000) + 900}`,
                         elder: newTask.elder,
                         time: newTask.time || '随时',
-                        type: '临时',
+                        type: 'care',
                         name: newTask.name,
-                        status: 'todo'
+                        status: 'pending',
+                        fee: newTask.fee || 0,
+                        staff: newTask.assignTo === 'pool' ? '未指派' : newTask.assignTo,
                      };
-                     if (newTask.assignTo === 'pool') {
-                        setUnassignedTasks(prev => [task, ...prev]);
-                     } else {
-                        setDispatchGroups(groups => groups.map(g => {
-                           if (g.staff === newTask.assignTo) {
-                              return { ...g, tasks: [task, ...g.tasks] };
-                           }
-                           return g;
-                        }));
-                     }
+                     addTask(task as any);
                      setShowNewTaskModal(false);
-                     setNewTask({ name: '', elder: '无需关联特定长者 (公共区域任务)', time: '12:00', date: '', assignTo: 'pool' });
+                     setNewTask({ name: '', elder: '无需关联特定长者 (公共区域任务)', time: '12:00', date: '', assignTo: 'pool', fee: 0 });
                   }} 
                   className="px-6 py-2.5 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-colors shadow-sm gap-2 flex items-center disabled:opacity-50"
                 >
@@ -303,8 +334,12 @@ export function CareTasks() {
                   <label className="text-sm font-bold text-slate-700">选择执行人</label>
                   <select value={assignTarget} onChange={e => setAssignTarget(e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-colors">
                      <option value="" disabled>请选择...</option>
-                     {dispatchGroups.map((g, i) => (
-                        <option key={i} value={g.staff}>{g.station} - {g.staff}</option>
+                     {departmentGroups.map((g, i) => (
+                        <optgroup key={i} label={g.dept}>
+                           {g.staffList.map((m: any, j: number) => (
+                              <option key={j} value={m.staff}>{m.staff}</option>
+                           ))}
+                        </optgroup>
                      ))}
                   </select>
                 </div>
@@ -315,16 +350,7 @@ export function CareTasks() {
                 <button 
                   disabled={!assignTarget}
                   onClick={() => {
-                     setDispatchGroups(groups => groups.map(g => {
-                        if (g.staff === assignTarget) {
-                           return {
-                              ...g,
-                              tasks: [...g.tasks, { ...taskToAssign, status: 'todo' }]
-                           };
-                        }
-                        return g;
-                     }));
-                     setUnassignedTasks(tasks => tasks.filter(t => t.id !== taskToAssign.id));
+                     updateTaskStaff(taskToAssign.id, assignTarget);
                      setTaskToAssign(null);
                      setAssignTarget('');
                   }} 

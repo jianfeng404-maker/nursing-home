@@ -1,12 +1,18 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { MessageSquareWarning, Search, Filter, CheckCircle2, Clock, CheckSquare, X, ArrowRight, UserPlus, FileText, Send } from "lucide-react";
+import { MessageSquareWarning, Search, Filter, CheckCircle2, Clock, CheckSquare, X, ArrowRight, UserPlus, FileText, Send, DollarSign } from "lucide-react";
+import { useStore } from "../store";
+import { toast } from "sonner";
 
 export function Complaints() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showProcessModal, setShowProcessModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState<any>(null);
+  const [compensationAmount, setCompensationAmount] = useState<number>(0);
+  const [processNote, setProcessNote] = useState('');
+
+  const addBill = useStore(state => state.addBill);
 
   const [complaints, setComplaints] = useState([
     { id: "C-20231024-01", target: "餐饮部", issue: "午餐荤菜太硬，老人咬不动", complainant: "刘建国(102房)", date: "2023-10-24 12:30", status: "pending", handler: "", feedback: "", logs: [] },
@@ -311,9 +317,18 @@ export function Complaints() {
                        </h4>
                        <p className="text-xs text-slate-500 mb-4">记录当前的协调结果或最终处理方案。</p>
                        
-                       <div className="space-y-1.5">
+                       <div className="space-y-1.5 ">
                           <label className="text-sm font-medium text-slate-700 block">处理情况描述 *</label>
-                          <textarea className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 min-h-[120px]" placeholder="详细记录已采取的解决措施、与家属沟通情况等..."></textarea>
+                          <textarea value={processNote} onChange={e=>setProcessNote(e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 min-h-[120px]" placeholder="详细记录已采取的解决措施、与家属沟通情况等..."></textarea>
+                       </div>
+                       
+                       <div className="space-y-1.5 mt-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                          <label className="text-sm font-medium text-slate-700 flex items-center gap-2"><DollarSign className="w-4 h-4 text-emerald-600"/> 折扣/赔付退费补偿（可选）</label>
+                          <div className="flex items-center gap-2">
+                             <span className="text-slate-500">￥</span>
+                             <input type="number" value={compensationAmount} onChange={e=>setCompensationAmount(Number(e.target.value))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 bg-white" placeholder="0.00" />
+                          </div>
+                          <p className="text-[11px] text-slate-500">输入金额后结案，系统将自动向长者生成负数账单进行费用抵扣结算。</p>
                        </div>
                     </div>
                   )}
@@ -328,7 +343,28 @@ export function Complaints() {
                           <button onClick={() => setShowProcessModal(false)} className="flex-1 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
                             仅保存进展
                           </button>
-                          <button onClick={() => setShowProcessModal(false)} className="flex-1 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm">
+                          <button onClick={() => {
+                              if (compensationAmount > 0) {
+                                  addBill({
+                                      id: `BILL-CMP-${new Date().toISOString().replace(/\D/g, '').slice(0, 8)}-${Math.floor(Math.random() * 90 + 10)}`,
+                                      elder: selectedComplaint.complainant.split('(')[0] || '未知',
+                                      room: selectedComplaint.complainant.includes('(') ? selectedComplaint.complainant.split('(')[1].replace(')', '') : '未知',
+                                      period: "投诉处理费用补偿",
+                                      dueDate: new Date().toISOString().split('T')[0],
+                                      status: "已部分退费",
+                                      total: `-${compensationAmount}`,
+                                      items: [
+                                          { name: "客诉核实后的费用补偿金", amount: `-${compensationAmount}`, type: "refund" }
+                                      ]
+                                  });
+                                  toast.success(`结案成功！已向长者账户打入 ￥${compensationAmount} 的补偿款负数账单用于冲抵。`);
+                              } else {
+                                  toast.success("结案成功！处理进展已记录。");
+                              }
+                              setShowProcessModal(false);
+                              setCompensationAmount(0);
+                              setProcessNote('');
+                          }} className="flex-1 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm">
                             问题已解决, 扭转状态
                           </button>
                         </div>

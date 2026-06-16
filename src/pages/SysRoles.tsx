@@ -37,11 +37,12 @@ export function SysRoles() {
     const formData = new FormData(e.currentTarget);
     const account = formData.get('account') as string;
     const name = formData.get('name') as string;
+    const selectedRoles = Array.from((e.currentTarget.elements.namedItem('role') as HTMLSelectElement).selectedOptions).map(opt => opt.value);
     
     setLoading(true);
     try {
       if (editingUser) {
-        updateSysUser(editingUser.id, { username: account, name });
+        updateSysUser(editingUser.id, { username: account, name, roles: selectedRoles });
         toast.success('此账号修改成功！');
       } else {
         const uid = `U${Date.now()}`;
@@ -49,11 +50,11 @@ export function SysRoles() {
           id: uid,
           username: account,
           name: name,
-          roles: ['普通用户'],
+          roles: selectedRoles,
           status: '正常',
           lastLogin: '-'
         });
-        toast.success('此账号已添加成功！');
+        toast.success('此账号已添加成功！默认密码为：123456');
       }
       setShowUserModal(false);
     } catch (err: any) {
@@ -245,10 +246,23 @@ export function SysRoles() {
                   <label className="text-sm font-medium text-slate-700">账号 (手机号等) *</label>
                   <input name="account" type="text" required defaultValue={editingUser?.username} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="如: 13800138000" />
                 </div>
+                
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-slate-700">系统显示名称 *</label>
                   <input name="name" required defaultValue={editingUser?.name} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="真实姓名或昵称" />
                 </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">关联角色 * (可多选)</label>
+                  <select name="role" required multiple defaultValue={editingUser?.roles || ['employee']} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 bg-white min-h-[100px]">
+                    <option value="admin">管理员</option>
+                    <option value="employee">普通员工</option>
+                    {roles.map(r => (
+                       r.code !== 'admin' && r.code !== 'employee' && <option key={r.code} value={r.code}>{r.name}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-slate-500">按住 Ctrl (或 Cmd) 可多选</p>
+                </div>
+
               </div>
               <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
                 <button type="button" onClick={() => setShowUserModal(false)} disabled={loading} className="px-4 py-2 text-sm text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50">取消</button>

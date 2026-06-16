@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { toast } from "sonner";
 import { Users, PhoneCall, CalendarPlus, UserCheck, PlusCircle, Search, Clock, FileText, X, Check, Calendar, ArrowRight, UserPlus, User, ClipboardList } from "lucide-react";
 
-export function MarketingReception() {
+export function MarketingReception({ setActiveTab }: { setActiveTab?: (tab: string) => void }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedReception, setSelectedReception] = useState<any>(null);
   const [showAddFollowUp, setShowAddFollowUp] = useState(false);
@@ -346,9 +347,10 @@ export function MarketingReception() {
                 </button>
                  <button 
                   onClick={() => {
-                    /* fake save */ 
-                    setShowAddModal(false); 
-                  }}
+                  /* fake save */ 
+                  setShowAddModal(false); 
+                  toast.success('接待记录已成功保存');
+                }}
                   className="px-6 py-2.5 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-colors shadow-sm"
                 >
                   保存接待记录
@@ -578,7 +580,13 @@ export function MarketingReception() {
                 取消
               </button>
                <button 
-                onClick={() => setShowAddAssessment(false)}
+                onClick={() => {
+                  setShowAddAssessment(false);
+                  if (setActiveTab) {
+                    setActiveTab('admission_assess');
+                    setTimeout(() => toast.success('已跳转至入院评估'), 300);
+                  }
+                }}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2"
               >
                 <ArrowRight className="w-4 h-4" /> 提交评估申请
@@ -606,7 +614,13 @@ export function MarketingReception() {
             </div>
             <div className="p-5 border-t border-slate-100 flex flex-col gap-3 bg-slate-50/50">
                <button 
-                onClick={() => setShowAddContract(false)}
+                onClick={() => {
+                  setShowAddContract(false);
+                  if (setActiveTab) {
+                    setActiveTab('admission_record');
+                    setTimeout(() => toast.success('已将当前客户数据带入长者档案，请继续办理'), 300);
+                  }
+                }}
                 className="w-full px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
               >
                 确认并跳转签约页面
@@ -652,7 +666,10 @@ export function MarketingReception() {
                 取消
               </button>
                <button 
-                onClick={() => setShowAddTracking(false)}
+                onClick={() => {
+                   setShowAddTracking(false);
+                   toast.success('跟踪记录已添加成功');
+                }}
                 className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
               >
                 添加记录

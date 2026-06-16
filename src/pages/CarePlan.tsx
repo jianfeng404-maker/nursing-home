@@ -12,18 +12,12 @@ interface CarePlanProps {
 }
 
 export function CarePlan({ setActiveTab: setAppTab, embedded, elderId }: CarePlanProps) {
-  const { addTask, elders, careLevels, serviceItems } = useStore();
+  const { addTask, elders, careLevels, serviceItems, carePlans: allPlans, addCarePlan } = useStore();
   const [activeTab, setActiveTab] = useState('active');
   const [showNewModal, setShowNewModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
-
-  const [allPlans, setPlans] = useState([
-    { id: "PLN-001", elderId: "ELD-001", elderName: "张明宇", room: "A栋-101", careLevel: "二级护理 (高护)", goal: "维持现有日常生活自理能力，控制高血压指标稳定。", nextReview: "2023-12-20", manager: "李护士长", status: "执行中", tasks: [] },
-    { id: "PLN-002", elderId: "ELD-002", elderName: "李秀红", room: "A栋-105", careLevel: "一级护理 (专护)", goal: "防游走迷失，延缓认知退化，保障营养摄入。", nextReview: "2023-12-05", manager: "张主管", status: "执行中", tasks: [] },
-    { id: "PLN-003", elderId: "ELD-003", elderName: "赵大爷", room: "B栋-201", careLevel: "三级护理 (中护)", goal: "跌倒风险干预，改善关节炎疼痛症状。", nextReview: "2024-01-15", manager: "王医生", status: "待审核", tasks: [] },
-  ]);
 
   const plans = embedded && elderId 
     ? allPlans.filter(p => p.elderId === elderId)
@@ -72,18 +66,18 @@ export function CarePlan({ setActiveTab: setAppTab, embedded, elderId }: CarePla
     const careLevel = careLevels.find(c => c.id === newPlan.careLevelId);
 
     const plan = {
-      id: `PLN-00${plans.length + 1}`,
+      id: `PLN-00${allPlans.length + 1}`,
       elderId: elder.id,
       elderName: elder.name,
       room: elder.room,
       careLevel: careLevel?.name || '常规护理',
       goal: newPlan.goal,
-      nextReview: newPlan.nextReview || '2024-01-01',
+      nextReview: newPlan.nextReview || '2026-10-01',
       manager: newPlan.manager,
       status: '执行中',
       tasks: currentTasks
     };
-    setPlans([plan, ...plans]);
+    addCarePlan(plan);
 
     // Push these scheduled tasks to the global state so they appear on Nurse Station
     currentTasks.forEach(task => {
@@ -144,6 +138,15 @@ export function CarePlan({ setActiveTab: setAppTab, embedded, elderId }: CarePla
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="col-span-1 md:col-span-3 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 rounded-xl p-5 flex items-center gap-6 shadow-sm">
+           <div className="bg-white p-3 rounded-xl shadow-sm text-emerald-600 border border-emerald-100 shrink-0">
+             <FileSignature className="w-8 h-8" />
+           </div>
+           <div className="flex-1">
+             <h3 className="text-lg font-bold text-slate-800 mb-1">智能化评估到排程流转</h3>
+             <p className="text-sm text-slate-600">在此处建立长者照护计划时，系统会默认读取该长者的核心护理级别，并<strong className="text-emerald-700">自动从内置 SOP 标准服务库中抽出对应的（如洗浴、口腔清洁等）照护项目与频次</strong>，直接预生成每日看护工单，实现零录入成本。</p>
+           </div>
+        </div>
         <Card className="border-none shadow-sm shadow-slate-200/50 bg-gradient-to-br from-indigo-500 to-indigo-600 text-white">
           <CardContent className="p-6">
             <div className="flex justify-between items-start mb-4">
@@ -151,7 +154,7 @@ export function CarePlan({ setActiveTab: setAppTab, embedded, elderId }: CarePla
                 <Target className="w-6 h-6 text-white" />
               </div>
             </div>
-            <h3 className="text-3xl font-bold mb-1">128</h3>
+            <h3 className="text-3xl font-bold mb-1">{allPlans.filter(p => p.status === '执行中').length}</h3>
             <p className="text-indigo-100 text-sm font-medium">在执行照护计划总量</p>
           </CardContent>
         </Card>

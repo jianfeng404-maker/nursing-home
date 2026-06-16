@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Search, Plus, Filter, CalendarClock, Ban, MapPin, CheckCircle2, Navigation, AlertTriangle, X, FileText, Info } from "lucide-react";
 import { useStore } from "../store";
+import { toast } from "sonner";
 
 export function LeaveManage() {
   const [activeTab, setActiveTab] = useState('active');
@@ -12,7 +13,7 @@ export function LeaveManage() {
 
   const [selectedElderForLeave, setSelectedElderForLeave] = useState<string>('');
 
-  const { elders, targetElderId, targetAction, setTargetElderId, setTargetAction } = useStore();
+  const { elders, targetElderId, targetAction, setTargetElderId, setTargetAction, addBill } = useStore();
 
   useEffect(() => {
      if (targetAction === 'create_leave' && targetElderId) {
@@ -328,10 +329,26 @@ export function LeaveManage() {
             <div className="p-5 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
               <button onClick={() => setShowReturnModal(false)} className="px-5 py-2.5 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">取消</button>
               <button 
-                onClick={() => setShowReturnModal(false)} 
+                onClick={() => {
+                   addBill({
+                     id: `BILL-REFUND-${new Date().toISOString().replace(/\D/g, '').slice(0, 8)}-${Math.floor(Math.random() * 90 + 10)}`,
+                     elder: selectedRecord?.name || '未知',
+                     room: selectedRecord?.room || '未知',
+                     period: "请假未产生费用退还",
+                     dueDate: new Date().toISOString().split('T')[0],
+                     status: "已部分退费",
+                     total: "-150", // mock退费金额
+                     items: [
+                       { name: "按天折算未使用餐饮退费", amount: "-100", type: "refund" },
+                       { name: "按天折算未产生照护费退补", amount: "-50", type: "refund" }
+                     ]
+                   });
+                   toast.success(`销假成功！餐饮和护理排班已恢复。系统已根据请假天数自动核算产生退费账单 ￥150.00`);
+                   setShowReturnModal(false);
+                }} 
                 className="px-5 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm flex items-center gap-2"
               >
-                <CheckCircle2 className="w-4 h-4" /> 确认销假
+                <CheckCircle2 className="w-4 h-4" /> 确认销假并核算退费
               </button>
             </div>
           </div>

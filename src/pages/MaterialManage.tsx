@@ -1,12 +1,16 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader } from "../components/ui/card";
-import { Search, Plus, Filter, Edit, Trash2, X } from "lucide-react";
+import { Search, Plus, Filter, Edit, Trash2, X, Download } from "lucide-react";
 import { toast } from "sonner";
 
 export function MaterialManage() {
   const [activeTab, setActiveTab] = useState("material");
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingItem, setEditingItem] = useState<any>(null);
+
+  const [matForm, setMatForm] = useState({ name: "", category: "", unit: "", price: "", supplier: "", status: "启用" });
+  const [supForm, setSupForm] = useState({ name: "", contact: "", phone: "", type: "", credit: "良好" });
 
   const [materials, setMaterials] = useState([
     {
@@ -119,8 +123,22 @@ export function MaterialManage() {
           </p>
         </div>
         <div className="flex gap-3">
+          <button 
+            onClick={() => toast.success(`已导出 ${activeTab === 'material' ? '物料' : '供应商'} 数据记录`)}
+            className="flex items-center gap-2 px-3 py-2 border border-slate-300 text-slate-600 rounded-md text-sm font-medium hover:bg-slate-50 transition"
+          >
+            <Download className="w-4 h-4" /> 导出数据
+          </button>
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={() => {
+              setEditingItem(null);
+              if (activeTab === "material") {
+                 setMatForm({ name: "", category: "", unit: "", price: "", supplier: "", status: "启用" });
+              } else {
+                 setSupForm({ name: "", contact: "", phone: "", type: "", credit: "良好" });
+              }
+              setShowAddModal(true);
+            }}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition shadow-sm"
           >
             <Plus className="w-4 h-4" />
@@ -214,10 +232,23 @@ export function MaterialManage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right flex justify-end gap-2">
-                      <button className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition">
+                      <button 
+                        onClick={() => {
+                          setEditingItem(item);
+                          setMatForm({ name: item.name, category: item.category, unit: item.unit, price: item.price, supplier: item.supplier, status: item.status });
+                          setShowAddModal(true);
+                        }}
+                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition">
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button className="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition">
+                      <button 
+                        onClick={() => {
+                          if (confirm(`确定要删除物料 [${item.name}] 吗？`)) {
+                            setMaterials(materials.filter(m => m.id !== item.id));
+                            toast.success("已删除物料");
+                          }
+                        }}
+                        className="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
@@ -274,10 +305,23 @@ export function MaterialManage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right flex justify-end gap-2">
-                      <button className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition">
+                      <button 
+                        onClick={() => {
+                          setEditingItem(sup);
+                          setSupForm({ name: sup.name, contact: sup.contact, phone: sup.phone, type: sup.type, credit: sup.credit });
+                          setShowAddModal(true);
+                        }}
+                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition">
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button className="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition">
+                      <button 
+                        onClick={() => {
+                          if (confirm(`确定要删除供应商 [${sup.name}] 吗？`)) {
+                            setSuppliers(suppliers.filter(s => s.id !== sup.id));
+                            toast.success("已删除供应商");
+                          }
+                        }}
+                        className="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
@@ -317,64 +361,70 @@ export function MaterialManage() {
               {activeTab === "material" ? (
                 <div className="space-y-4 text-sm">
                   <div>
-                    <label className="block text-slate-700 font-medium mb-1">
-                      名称规格
-                    </label>
-                    <input
-                      id="new-mat-name"
-                      type="text"
-                      className="w-full border border-slate-300 rounded-lg px-3 py-2"
-                      placeholder="如：一次性医用手套"
-                    />
+                    <label className="block text-slate-700 font-medium mb-1">名称规格 <span className="text-rose-500">*</span></label>
+                    <input type="text" value={matForm.name} onChange={e => setMatForm({...matForm, name: e.target.value})} className="w-full border border-slate-300 rounded-lg px-3 py-2" placeholder="如：一次性医用手套" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-slate-700 font-medium mb-1">
-                        类别
-                      </label>
-                      <input
-                        id="new-mat-cat"
-                        type="text"
-                        className="w-full border border-slate-300 rounded-lg px-3 py-2"
-                        placeholder="如：医疗耗材"
-                      />
+                      <label className="block text-slate-700 font-medium mb-1">类别 <span className="text-rose-500">*</span></label>
+                      <input type="text" value={matForm.category} onChange={e => setMatForm({...matForm, category: e.target.value})} className="w-full border border-slate-300 rounded-lg px-3 py-2" placeholder="如：医疗耗材" />
                     </div>
                     <div>
-                      <label className="block text-slate-700 font-medium mb-1">
-                        单位
-                      </label>
-                      <input
-                        id="new-mat-unit"
-                        type="text"
-                        className="w-full border border-slate-300 rounded-lg px-3 py-2"
-                        placeholder="如：盒"
-                      />
+                      <label className="block text-slate-700 font-medium mb-1">单位 <span className="text-rose-500">*</span></label>
+                      <input type="text" value={matForm.unit} onChange={e => setMatForm({...matForm, unit: e.target.value})} className="w-full border border-slate-300 rounded-lg px-3 py-2" placeholder="如：盒" />
                     </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-slate-700 font-medium mb-1">参考单价</label>
+                      <input type="number" step="0.01" value={matForm.price} onChange={e => setMatForm({...matForm, price: e.target.value})} className="w-full border border-slate-300 rounded-lg px-3 py-2" placeholder="0.00" />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-medium mb-1">状态</label>
+                      <select value={matForm.status} onChange={e => setMatForm({...matForm, status: e.target.value})} className="w-full border border-slate-300 rounded-lg px-3 py-2">
+                        <option value="启用">启用</option>
+                        <option value="停用">停用</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-medium mb-1">绑定供应商</label>
+                    <select value={matForm.supplier} onChange={e => setMatForm({...matForm, supplier: e.target.value})} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-slate-600">
+                       <option value="">--未绑定--</option>
+                       {suppliers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                    </select>
                   </div>
                 </div>
               ) : (
-                <div className="space-y-4 text-sm">
+                 <div className="space-y-4 text-sm">
                   <div>
-                    <label className="block text-slate-700 font-medium mb-1">
-                      企业名称
-                    </label>
-                    <input
-                      id="new-sup-name"
-                      type="text"
-                      className="w-full border border-slate-300 rounded-lg px-3 py-2"
-                      placeholder="如：某某医疗器械公司"
-                    />
+                    <label className="block text-slate-700 font-medium mb-1">企业名称 <span className="text-rose-500">*</span></label>
+                    <input type="text" value={supForm.name} onChange={e => setSupForm({...supForm, name: e.target.value})} className="w-full border border-slate-300 rounded-lg px-3 py-2" placeholder="如：某某医疗器械公司" />
                   </div>
-                  <div>
-                    <label className="block text-slate-700 font-medium mb-1">
-                      联系人
-                    </label>
-                    <input
-                      id="new-sup-contact"
-                      type="text"
-                      className="w-full border border-slate-300 rounded-lg px-3 py-2"
-                      placeholder="如：张经理"
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-slate-700 font-medium mb-1">主营业务</label>
+                      <input type="text" value={supForm.type} onChange={e => setSupForm({...supForm, type: e.target.value})} className="w-full border border-slate-300 rounded-lg px-3 py-2" placeholder="如：医疗耗材" />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-medium mb-1">信誉评价</label>
+                      <select value={supForm.credit} onChange={e => setSupForm({...supForm, credit: e.target.value})} className="w-full border border-slate-300 rounded-lg px-3 py-2">
+                        <option value="优秀">优秀</option>
+                        <option value="良好">良好</option>
+                        <option value="一般">一般</option>
+                        <option value="差">差</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-slate-700 font-medium mb-1">联系人</label>
+                      <input type="text" value={supForm.contact} onChange={e => setSupForm({...supForm, contact: e.target.value})} className="w-full border border-slate-300 rounded-lg px-3 py-2" placeholder="如：张经理" />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-medium mb-1">联系电话</label>
+                      <input type="text" value={supForm.phone} onChange={e => setSupForm({...supForm, phone: e.target.value})} className="w-full border border-slate-300 rounded-lg px-3 py-2" placeholder="电话..." />
+                    </div>
                   </div>
                 </div>
               )}
@@ -388,7 +438,31 @@ export function MaterialManage() {
               </button>
               <button
                 onClick={() => {
-                  toast.success("添加成功");
+                  if (activeTab === "material") {
+                     if (!matForm.name || !matForm.category || !matForm.unit) {
+                        toast.error("请填写物料必填项"); return;
+                     }
+                     if (editingItem) {
+                        setMaterials(materials.map(m => m.id === editingItem.id ? { ...m, ...matForm } : m));
+                        toast.success("物料修改成功");
+                     } else {
+                        const newId = `MAT-${Date.now().toString().slice(-4)}`;
+                        setMaterials([{ id: newId, ...matForm }, ...materials]);
+                        toast.success("物料添加成功");
+                     }
+                  } else {
+                     if (!supForm.name) {
+                        toast.error("请输入企业名称"); return;
+                     }
+                     if (editingItem) {
+                        setSuppliers(suppliers.map(s => s.id === editingItem.id ? { ...s, ...supForm } : s));
+                        toast.success("供应商修改成功");
+                     } else {
+                        const newId = `SUP-${Date.now().toString().slice(-3)}`;
+                        setSuppliers([{ id: newId, ...supForm }, ...suppliers]);
+                        toast.success("供应商添加成功");
+                     }
+                  }
                   setShowAddModal(false);
                 }}
                 className="px-4 py-2 text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 rounded-md transition-colors shadow-sm"

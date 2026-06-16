@@ -23,8 +23,8 @@ export function ActivityStatusChart() {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="p-6 flex-1 min-h-[320px]">
-        <div style={{ width: '100%', height: 320 }}>
+      <CardContent className="p-6 flex-1 min-h-0 w-full relative">
+        <div className="absolute inset-x-6 inset-y-6">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <defs>

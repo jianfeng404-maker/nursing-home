@@ -2,43 +2,32 @@ import { useState } from "react";
 import { Card, CardContent } from "../components/ui/card";
 import { Search, Calculator, CheckCircle2, Clock, Printer, QrCode, CreditCard, Banknote, FileText, SmartphoneNfc } from "lucide-react";
 import { ElderLink } from "../components/ElderLink";
+import { useStore, BillRecordType } from "../store";
 
 export function PaymentSettle() {
   const [activeTab, setActiveTab] = useState('unpaid');
-  const [selectedBill, setSelectedBill] = useState<any>(null);
+  const [selectedBill, setSelectedBill] = useState<BillRecordType | null>(null);
   const [isPaying, setIsPaying] = useState(false);
 
-  // Simulated bills database
-  const [bills, setBills] = useState([
-    { 
-      id: "BILL-2026-04-001", elder: "张明宇", room: "A栋-101床", period: "2026年04月 (下半月)", dueDate: "2026-05-05", status: "未缴费", total: "4,600.00",
-      items: [
-         { name: "基础床位费 (套房单间)", amount: "2,500.00", type: "fixed" },
-         { name: "二级护理服务费", amount: "1,500.00", type: "fixed" },
-         { name: "标准营养餐饮费", amount: "600.00", type: "fixed" }
-      ],
-      tempItems: []
-    },
-    { 
-      id: "BILL-2026-04-005", elder: "王建国", room: "A栋-108床", period: "2026年04月 (下半月)", dueDate: "2026-05-05", status: "未缴费", total: "5,125.00",
-      items: [
-         { name: "基础床位费 (双人间)", amount: "1,800.00", type: "fixed" },
-         { name: "三级护理服务费", amount: "2,800.00", type: "fixed" },
-         { name: "特殊膳食费 (糖尿病餐)", amount: "350.00", type: "fixed" }
-      ],
-      tempItems: [
-         { name: "临时陪同就医服务 (3小时)", amount: "150.00", date: "04-18" },
-         { name: "代购营养补充剂 ( Ensure )", amount: "25.00", date: "04-20" }
-      ]
-    },
-    { id: "BILL-2026-04-002", elder: "李秀兰", room: "B栋-205", period: "2026年04月", total: "6,200.00", dueDate: "2026-05-05", status: "已缴费", items: [], tempItems: [] },
-    { id: "BILL-2026-03-018", elder: "赵桂芳", room: "C栋-302", period: "2026年03月", total: "7,000.00", dueDate: "2026-04-05", status: "逾期未缴", items: [], tempItems: [] },
-  ]);
+  const bills = useStore(state => state.bills);
+  const updateBillStatus = useStore(state => state.updateBillStatus);
+  const addTransaction = useStore(state => state.addTransaction);
 
   const handlePay = () => {
+     if (!selectedBill) return;
      setIsPaying(true);
      setTimeout(() => {
-        setBills(bills.map(b => b.id === selectedBill.id ? { ...b, status: '已缴费' } : b));
+        updateBillStatus(selectedBill.id, '已缴费');
+        addTransaction({
+           id: `TXN-${Date.now()}`,
+           billId: selectedBill.id,
+           elderId: selectedBill.elder,
+           amount: parseFloat(selectedBill.total.toString().replace(/,/g, '')),
+           direction: 'IN',
+           method: '支付宝',
+           operator: '系统自动核销',
+           txTime: new Date().toISOString()
+        });
         setIsPaying(false);
         setSelectedBill({ ...selectedBill, status: '已缴费' });
      }, 1500);
@@ -91,7 +80,7 @@ export function PaymentSettle() {
             
             <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar bg-slate-50">
                {bills.filter(b => 
-                  (activeTab === 'unpaid' && b.status === '未缴费') ||
+                  (activeTab === 'unpaid' && (b.status === '未缴费' || b.status === '已核发 (待缴款)')) ||
                   (activeTab === 'paid' && b.status === '已缴费') ||
                   (activeTab === 'overdue' && b.status === '逾期未缴')
                ).map((bill) => (
@@ -119,7 +108,7 @@ export function PaymentSettle() {
                   </div>
                ))}
                {bills.filter(b => 
-                  (activeTab === 'unpaid' && b.status === '未缴费') ||
+                  (activeTab === 'unpaid' && (b.status === '未缴费' || b.status === '已核发 (待缴款)')) ||
                   (activeTab === 'paid' && b.status === '已缴费') ||
                   (activeTab === 'overdue' && b.status === '逾期未缴')
                ).length === 0 && (
